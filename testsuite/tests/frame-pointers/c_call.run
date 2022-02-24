@@ -1,0 +1,4 @@
+#!/bin/sh
+set -u
+
+${program} 2>&1 | ${test_source_directory}/filter-locations.sh >${output}
