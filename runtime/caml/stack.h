@@ -63,7 +63,7 @@
    See arm64.S and arm64/proc.ml for the indices */
 #define Wosize_gc_regs (2 + 24 /* int regs */ + 24 /* float regs */)
 #define Saved_return_address(sp) *((intnat *)((sp) - 8))
-#define Pop_frame_pointer(sp) sp += sizeof(value)
+#define Pop_frame_pointer(sp) (sp) += sizeof(value)
 #define Context_needs_padding /* keep stack 16-byte aligned */
 #endif
 
