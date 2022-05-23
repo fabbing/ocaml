@@ -72,6 +72,8 @@ module Deep = struct
   external get_callstack :
     ('a,'b) continuation -> int -> Printexc.raw_backtrace =
     "caml_get_continuation_callstack"
+
+  external id : unit -> int = "caml_fiber_id"
 end
 
 module Shallow = struct
@@ -137,4 +139,6 @@ module Shallow = struct
   external get_callstack :
     ('a,'b) continuation -> int -> Printexc.raw_backtrace =
     "caml_get_continuation_callstack"
+
+  external id : unit -> int = "caml_fiber_id"
 end

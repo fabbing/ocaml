@@ -39,6 +39,8 @@
 #include <sys/mman.h>
 #endif
 
+#include <limits.h>
+
 #ifdef DEBUG
 #define fiber_debug_log(...) caml_gc_log(__VA_ARGS__)
 #else
@@ -589,4 +591,15 @@ CAMLprim value caml_drop_continuation (value cont)
   struct stack_info* stk = Ptr_val(caml_continuation_use(cont));
   caml_free_stack(stk);
   return Val_unit;
+}
+
+CAMLprim value caml_fiber_id(value unit)
+{
+  struct stack_info* stack = Caml_state->current_stack;
+
+  CAMLassert(unit == Val_unit);
+  if (!stack || stack->id > INT_MAX)
+    return Val_int(-1);
+
+  return Val_int(stack->id);
 }

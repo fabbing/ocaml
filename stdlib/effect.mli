@@ -78,6 +78,8 @@ module Deep : sig
     "caml_get_continuation_callstack"
   (** [get_callstack c n] returns a description of the top of the call stack on
       the continuation [c], with at most [n] entries. *)
+
+  external id : unit -> int = "caml_fiber_id"
 end
 
 module Shallow : sig
@@ -130,4 +132,6 @@ module Shallow : sig
     "caml_get_continuation_callstack"
   (** [get_callstack c n] returns a description of the top of the call stack on
       the continuation [c], with at most [n] entries. *)
+
+  external id : unit -> int = "caml_fiber_id"
 end
