@@ -132,7 +132,7 @@ Caml_inline int stack_cache_bucket (mlsize_t wosize) {
 
 static struct stack_info*
 alloc_size_class_stack_noexc(mlsize_t wosize, int cache_bucket,
-                             value hval, value hexn, value heff)
+                             value hval, value hexn, value heff, uintnat id)
 {
   struct stack_info* stack;
   struct stack_handler* hand;
@@ -172,6 +172,7 @@ alloc_size_class_stack_noexc(mlsize_t wosize, int cache_bucket,
   hand->parent = NULL;
   stack->sp = (value*)hand;
   stack->exception_ptr = NULL;
+  stack->id = id;
 #ifdef DEBUG
   stack->magic = 42;
 #endif
@@ -183,20 +184,23 @@ alloc_size_class_stack_noexc(mlsize_t wosize, int cache_bucket,
 
 /* allocate a stack with at least "wosize" usable words of stack */
 static struct stack_info* alloc_stack_noexc(mlsize_t wosize, value hval,
-                                            value hexn, value heff)
+                                            value hexn, value heff, uintnat id)
 {
   int cache_bucket = stack_cache_bucket (wosize);
-  return alloc_size_class_stack_noexc(wosize, cache_bucket, hval, hexn, heff);
+  return alloc_size_class_stack_noexc(wosize, cache_bucket, hval, hexn, heff,
+      id);
 }
 
 #ifdef NATIVE_CODE
 
 value caml_alloc_stack (value hval, value hexn, value heff) {
+  static __thread uintnat id = 1;
   struct stack_info* stack =
     alloc_size_class_stack_noexc(caml_fiber_wsz, 0 /* first bucket */,
-                                 hval, hexn, heff);
+                                 hval, hexn, heff, id);
 
   if (!stack) caml_raise_out_of_memory();
+  id += 1;
 
   fiber_debug_log ("Allocate stack=%p of %" ARCH_INTNAT_PRINTF_FORMAT
                      "u words", stack, caml_fiber_wsz);
@@ -315,11 +319,13 @@ value caml_global_data;
 CAMLprim value caml_alloc_stack(value hval, value hexn, value heff)
 {
   value* sp;
+  static __thread uintnat id = 1;
   struct stack_info* stack =
     alloc_size_class_stack_noexc(caml_fiber_wsz, 0 /* first bucket */,
-                                 hval, hexn, heff);
+                                 hval, hexn, heff, id);
 
   if (!stack) caml_raise_out_of_memory();
+  id += 1;
 
   sp = Stack_high(stack);
   sp -= 1;
@@ -448,7 +454,8 @@ int caml_try_realloc_stack(asize_t required_space)
   new_stack = alloc_stack_noexc(wsize,
                                 Stack_handle_value(old_stack),
                                 Stack_handle_exception(old_stack),
-                                Stack_handle_effect(old_stack));
+                                Stack_handle_effect(old_stack),
+                                old_stack->id);
   if (!new_stack) return 0;
   memcpy(Stack_high(new_stack) - stack_used,
          Stack_high(old_stack) - stack_used,
@@ -482,7 +489,7 @@ int caml_try_realloc_stack(asize_t required_space)
 struct stack_info* caml_alloc_main_stack (uintnat init_wsize)
 {
   struct stack_info* stk =
-    alloc_stack_noexc(init_wsize, Val_unit, Val_unit, Val_unit);
+    alloc_stack_noexc(init_wsize, Val_unit, Val_unit, Val_unit, 0);
   return stk;
 }
 
