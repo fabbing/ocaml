@@ -31,7 +31,7 @@ extern "C++" {
 #define ATOMIC_UINTNAT_INIT(x) (x)
 using atomic_uintnat = std::atomic<uintnat>;
 using atomic_intant = std::atomic<intnat>;
-using atomic_int64 = std::atomic<intnat>;
+using atomic_int64 = std::atomic<int64>;
 using std::memory_order_relaxed;
 using std::memory_order_acquire;
 using std::memory_order_release;
