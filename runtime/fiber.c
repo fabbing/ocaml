@@ -133,8 +133,8 @@ Caml_inline int stack_cache_bucket (mlsize_t wosize) {
 }
 
 static struct stack_info*
-alloc_size_class_stack_noexc(mlsize_t wosize, int cache_bucket,
-                             value hval, value hexn, value heff, int64_t id)
+alloc_size_class_stack_noexc(mlsize_t wosize, int cache_bucket, value hval,
+                             value hexn, value heff, int64_t id)
 {
   struct stack_info* stack;
   struct stack_handler* hand;
@@ -185,12 +185,13 @@ alloc_size_class_stack_noexc(mlsize_t wosize, int cache_bucket,
 }
 
 /* allocate a stack with at least "wosize" usable words of stack */
-static struct stack_info* alloc_stack_noexc(mlsize_t wosize, value hval,
-                                            value hexn, value heff, int64_t id)
+static struct stack_info*
+alloc_stack_noexc(mlsize_t wosize, value hval, value hexn, value heff,
+                  int64_t id)
 {
   int cache_bucket = stack_cache_bucket (wosize);
   return alloc_size_class_stack_noexc(wosize, cache_bucket, hval, hexn, heff,
-      id);
+                                      id);
 }
 
 #ifdef NATIVE_CODE
