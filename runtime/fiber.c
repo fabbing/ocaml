@@ -39,13 +39,13 @@
 #include <sys/mman.h>
 #endif
 
-#include <limits.h>
-
 #ifdef DEBUG
 #define fiber_debug_log(...) caml_gc_log(__VA_ARGS__)
 #else
 #define fiber_debug_log(...)
 #endif
+
+static atomic_int64 fiber_id = 0;
 
 uintnat caml_get_init_stack_wsize (void)
 {
@@ -134,7 +134,7 @@ Caml_inline int stack_cache_bucket (mlsize_t wosize) {
 
 static struct stack_info*
 alloc_size_class_stack_noexc(mlsize_t wosize, int cache_bucket,
-                             value hval, value hexn, value heff, uintnat id)
+                             value hval, value hexn, value heff, int64_t id)
 {
   struct stack_info* stack;
   struct stack_handler* hand;
@@ -186,7 +186,7 @@ alloc_size_class_stack_noexc(mlsize_t wosize, int cache_bucket,
 
 /* allocate a stack with at least "wosize" usable words of stack */
 static struct stack_info* alloc_stack_noexc(mlsize_t wosize, value hval,
-                                            value hexn, value heff, uintnat id)
+                                            value hexn, value heff, int64_t id)
 {
   int cache_bucket = stack_cache_bucket (wosize);
   return alloc_size_class_stack_noexc(wosize, cache_bucket, hval, hexn, heff,
@@ -196,13 +196,12 @@ static struct stack_info* alloc_stack_noexc(mlsize_t wosize, value hval,
 #ifdef NATIVE_CODE
 
 value caml_alloc_stack (value hval, value hexn, value heff) {
-  static __thread uintnat id = 1;
+  const int64_t id = atomic_fetch_add(&fiber_id, 1);
   struct stack_info* stack =
     alloc_size_class_stack_noexc(caml_fiber_wsz, 0 /* first bucket */,
                                  hval, hexn, heff, id);
 
   if (!stack) caml_raise_out_of_memory();
-  id += 1;
 
   fiber_debug_log ("Allocate stack=%p of %" ARCH_INTNAT_PRINTF_FORMAT
                      "u words", stack, caml_fiber_wsz);
@@ -321,13 +320,12 @@ value caml_global_data;
 CAMLprim value caml_alloc_stack(value hval, value hexn, value heff)
 {
   value* sp;
-  static __thread uintnat id = 1;
+  const int64_t id = atomic_fetch_add(&fiber_id, 1);
   struct stack_info* stack =
     alloc_size_class_stack_noexc(caml_fiber_wsz, 0 /* first bucket */,
                                  hval, hexn, heff, id);
 
   if (!stack) caml_raise_out_of_memory();
-  id += 1;
 
   sp = Stack_high(stack);
   sp -= 1;
@@ -490,8 +488,9 @@ int caml_try_realloc_stack(asize_t required_space)
 
 struct stack_info* caml_alloc_main_stack (uintnat init_wsize)
 {
+  const int64_t id = atomic_fetch_add(&fiber_id, 1);
   struct stack_info* stk =
-    alloc_stack_noexc(init_wsize, Val_unit, Val_unit, Val_unit, 0);
+    alloc_stack_noexc(init_wsize, Val_unit, Val_unit, Val_unit, id);
   return stk;
 }
 
@@ -598,8 +597,8 @@ CAMLprim value caml_fiber_id(value unit)
   struct stack_info* stack = Caml_state->current_stack;
 
   CAMLassert(unit == Val_unit);
-  if (!stack || stack->id > INT_MAX)
-    return Val_int(-1);
+  if (!stack)
+    return caml_copy_int64(-1);
 
-  return Val_int(stack->id);
+  return caml_copy_int64(stack->id);
 }

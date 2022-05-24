@@ -29,8 +29,9 @@
 extern "C++" {
 #include <atomic>
 #define ATOMIC_UINTNAT_INIT(x) (x)
-typedef std::atomic<uintnat> atomic_uintnat;
-typedef std::atomic<intnat> atomic_intnat;
+using atomic_uintnat = std::atomic<uintnat>;
+using atomic_intant = std::atomic<intnat>;
+using atomic_int64 = std::atomic<intnat>;
 using std::memory_order_relaxed;
 using std::memory_order_acquire;
 using std::memory_order_release;
@@ -44,6 +45,7 @@ using std::memory_order_seq_cst;
 #define ATOMIC_UINTNAT_INIT(x) (x)
 typedef _Atomic uintnat atomic_uintnat;
 typedef _Atomic intnat atomic_intnat;
+typedef _Atomic int64_t atomic_int64;
 
 #elif defined(__GNUC__)
 
@@ -60,6 +62,7 @@ typedef enum memory_order {
 #define ATOMIC_UINTNAT_INIT(x) { (x) }
 typedef struct { uintnat repr; } atomic_uintnat;
 typedef struct { intnat repr; } atomic_intnat;
+typedef struct { int64_t repr; } atomic_int64;
 
 #define atomic_load_explicit(x, m) __atomic_load_n(&(x)->repr, (m))
 #define atomic_load(x) atomic_load_explicit((x), memory_order_seq_cst)

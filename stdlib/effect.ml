@@ -15,6 +15,8 @@
 type _ t = ..
 external perform : 'a t -> 'a = "%perform"
 
+external fiber_id : unit -> int64 = "caml_fiber_id"
+
 type ('a, 'b) stack
 
 external resume : ('a, 'b) stack -> ('c -> 'a) -> 'c -> 'b = "%resume"
@@ -72,8 +74,6 @@ module Deep = struct
   external get_callstack :
     ('a,'b) continuation -> int -> Printexc.raw_backtrace =
     "caml_get_continuation_callstack"
-
-  external id : unit -> int = "caml_fiber_id"
 end
 
 module Shallow = struct
@@ -139,6 +139,4 @@ module Shallow = struct
   external get_callstack :
     ('a,'b) continuation -> int -> Printexc.raw_backtrace =
     "caml_get_continuation_callstack"
-
-  external id : unit -> int = "caml_fiber_id"
 end

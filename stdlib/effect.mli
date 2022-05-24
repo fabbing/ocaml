@@ -24,6 +24,9 @@ external perform : 'a t -> 'a = "%perform"
 
     @raise Unhandled if there is no active handler. *)
 
+external fiber_id : unit -> int64 = "caml_fiber_id"
+(** [fiber_id] returns an unique identifier for the current fiber. *)
+
 module Deep : sig
   (** Deep handlers *)
 
@@ -78,8 +81,6 @@ module Deep : sig
     "caml_get_continuation_callstack"
   (** [get_callstack c n] returns a description of the top of the call stack on
       the continuation [c], with at most [n] entries. *)
-
-  external id : unit -> int = "caml_fiber_id"
 end
 
 module Shallow : sig
@@ -132,6 +133,4 @@ module Shallow : sig
     "caml_get_continuation_callstack"
   (** [get_callstack c n] returns a description of the top of the call stack on
       the continuation [c], with at most [n] entries. *)
-
-  external id : unit -> int = "caml_fiber_id"
 end
