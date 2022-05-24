@@ -593,13 +593,10 @@ CAMLprim value caml_drop_continuation (value cont)
   return Val_unit;
 }
 
-CAMLprim value caml_fiber_id(value unit)
+CAMLprim value caml_fiber_id(CAMLunused_start value unit CAMLunused_end)
 {
   struct stack_info* stack = Caml_state->current_stack;
 
-  CAMLassert(unit == Val_unit);
-  if (!stack)
-    return caml_copy_int64(-1);
-
+  CAMLassert(stack != NULL);
   return caml_copy_int64(stack->id);
 }
