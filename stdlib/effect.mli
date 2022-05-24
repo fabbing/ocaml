@@ -25,7 +25,7 @@ external perform : 'a t -> 'a = "%perform"
     @raise Unhandled if there is no active handler. *)
 
 external fiber_id : unit -> int64 = "caml_fiber_id"
-(** [fiber_id] returns an unique identifier for the current fiber. *)
+(** [fiber_id] returns a unique identifier for the current fiber. *)
 
 module Deep : sig
   (** Deep handlers *)
