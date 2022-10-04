@@ -800,6 +800,11 @@ void caml_shrink_mark_stack (void)
   }
 }
 
+Caml_inline uintnat rotate1(uintnat x)
+{
+  return (x << ((sizeof x)*8 - 1)) | (x >> 1);
+}
+
 void caml_darken_cont(value cont);
 
 static void mark_slice_darken(struct mark_stack* stk, prefetch_buffer_t* pb,
@@ -807,7 +812,11 @@ static void mark_slice_darken(struct mark_stack* stk, prefetch_buffer_t* pb,
 {
   header_t chd;
 
-  if (Is_markable(child)){
+  uintnat half_young_len = (caml_minor_heaps_end - caml_minor_heaps_start) >> 1;
+#define Is_block_and_not_young(v) \
+  ((intnat)rotate1((uintnat)v - caml_minor_heaps_start) >= (intnat)half_young_len)
+
+  if (Is_block_and_not_young(child)){
     chd = Hd_val(child);
     if (Tag_hd(chd) == Infix_tag) {
       child -= Infix_offset_hd(chd);
