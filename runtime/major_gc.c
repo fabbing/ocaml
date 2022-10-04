@@ -716,9 +716,9 @@ Caml_inline void mark_stack_push_range(struct mark_stack* stk,
 }
 
 /* returns the work done by skipping unmarkable objects */
-static intnat mark_stack_push_block(struct mark_stack* stk, value block)
+static intnat mark_stack_push_block(struct mark_stack* stk,
+                                    prefetch_buffer_t* pb, value block)
 {
-  prefetch_buffer_t* prefetch_buf = Caml_state->prefetch_buffer;
   int i, block_wsz = Wosize_val(block), end;
   uintnat offset = 0;
 
@@ -754,14 +754,14 @@ static intnat mark_stack_push_block(struct mark_stack* stk, value block)
   }
 
   for (; i < block_wsz; i++) {
-    if (prefetch_buffer_full(prefetch_buf))
+    if (prefetch_buffer_full(pb))
       break;
 
     value v = Field(block, i);
 
     if (Is_markable(v)) {
       prefetch_block(v);
-      prefetch_buffer_push(prefetch_buf, v);
+      prefetch_buffer_push(pb, v);
     }
   }
 
@@ -770,7 +770,7 @@ static intnat mark_stack_push_block(struct mark_stack* stk, value block)
     mark_stack_push_range(stk,
                           Op_val(block) + i,
                           Op_val(block) + block_wsz);
-    prefetch_buffer_fill(prefetch_buf);
+    prefetch_buffer_fill(pb);
   }
 
   /* take credit for the work we skipped due to the optimisation.
@@ -802,8 +802,8 @@ void caml_shrink_mark_stack (void)
 
 void caml_darken_cont(value cont);
 
-static void mark_slice_darken(struct mark_stack* stk, value child,
-                              intnat* work)
+static void mark_slice_darken(struct mark_stack* stk, prefetch_buffer_t* pb,
+                              value child, intnat* work)
 {
   header_t chd;
 
@@ -833,7 +833,7 @@ static void mark_slice_darken(struct mark_stack* stk, value child,
             With_status_hd(chd, caml_global_heap_state.MARKED));
         }
         if(Tag_hd(chd) < No_scan_tag){
-          *work -= mark_stack_push_block(stk, child);
+          *work -= mark_stack_push_block(stk, pb, child);
         } else {
           *work -= Wosize_hd(chd);
         }
@@ -842,14 +842,13 @@ static void mark_slice_darken(struct mark_stack* stk, value child,
   }
 }
 
-static intnat do_some_marking(struct mark_stack* stk, intnat budget) {
-  prefetch_buffer_t* pb = Caml_state->prefetch_buffer;
-
+static intnat do_some_marking(struct mark_stack* stk, prefetch_buffer_t* pb,
+                              intnat budget) {
   prefetch_buffer_fill(pb);
   while (1) {
     if (prefetch_buffer_above_watermark(pb)) {
       value block = prefetch_buffer_pop(pb);
-      mark_slice_darken(stk, block, &budget);
+      mark_slice_darken(stk, pb, block, &budget);
     }
     else if (budget <= 0 || stk->count == 0) {
       if (pb->watermark > 0) {
@@ -870,7 +869,7 @@ static intnat do_some_marking(struct mark_stack* stk, intnat budget) {
           return budget;
         }
         budget--;
-        mark_slice_darken(stk, *me.start, &budget);
+        mark_slice_darken(stk, pb, *me.start, &budget);
         me.start++;
       }
       budget--; /* credit for header */
@@ -887,12 +886,14 @@ static intnat do_some_marking(struct mark_stack* stk, intnat budget) {
 
 /* mark until the budget runs out or marking is done */
 static intnat mark(intnat budget) {
-  caml_domain_state *domain_state = Caml_state;
+  caml_domain_state* domain_state = Caml_state;
+  struct mark_stack* mstk = domain_state->mark_stack;
+  prefetch_buffer_t* pb = domain_state->prefetch_buffer;
+
   while (budget > 0 && !domain_state->marking_done) {
-    budget = do_some_marking(domain_state->mark_stack, budget);
+    budget = do_some_marking(mstk, pb, budget);
     if (budget > 0) {
       int i;
-      struct mark_stack* mstk = domain_state->mark_stack;
       addrmap_iterator it = mstk->compressed_stack_iter;
       if (caml_addrmap_iter_ok(&mstk->compressed_stack, it)) {
         uintnat k = caml_addrmap_iter_key(&mstk->compressed_stack, it);
@@ -907,11 +908,11 @@ static intnat mark(intnat budget) {
         for(i=0; i<BITS_PER_WORD; i++) {
           if(v & ((uintnat)1 << i)) {
             value* p = (value*)((k + i)*sizeof(value));
-            mark_slice_darken(domain_state->mark_stack, *p, &budget);
+            mark_slice_darken(mstk, pb, *p, &budget);
           }
         }
       } else {
-        CAMLassert(prefetch_buffer_empty(domain_state->prefetch_buffer));
+        CAMLassert(prefetch_buffer_empty(pb));
         ephe_next_cycle ();
         domain_state->marking_done = 1;
         atomic_fetch_add_verify_ge0(&num_domains_to_mark, -1);
@@ -971,7 +972,8 @@ void caml_darken(void* state, value v, volatile value* ignored) {
          Hp_atomic_val(v),
          With_status_hd(hd, caml_global_heap_state.MARKED));
       if (Tag_hd(hd) < No_scan_tag) {
-        mark_stack_push_block(domain_state->mark_stack, v);
+        mark_stack_push_block(domain_state->mark_stack,
+                              domain_state->prefetch_buffer, v);
       }
     }
   }
@@ -1226,7 +1228,6 @@ static void cycle_all_domains_callback(caml_domain_state* domain, void* unused,
   }
   CAML_EV_END(EV_MAJOR_MARK_ROOTS);
 
-  // FIXME discuss with @engil or Tom
   if (prefetch_buffer_empty(domain->prefetch_buffer) &&
       domain->mark_stack->count == 0 &&
       !caml_addrmap_iter_ok(&domain->mark_stack->compressed_stack,
