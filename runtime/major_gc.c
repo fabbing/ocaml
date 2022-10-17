@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <stdbool.h>
 
 #include "caml/addrmap.h"
 #include "caml/config.h"
@@ -37,6 +38,94 @@
 #include "caml/shared_heap.h"
 #include "caml/startup_aux.h"
 #include "caml/weak.h"
+
+/* -------------------------------------------------------------------------- */
+
+Caml_inline void prefetch_block(value v)
+{
+  /* Prefetch a block so that scanning it later avoids cache misses.
+     We will access at least the header, but we don't yet know how
+     many of the fields we will access - the block might be already
+     marked, not scannable, or very short. The compromise here is to
+     prefetch the header and the first few fields.
+     We issue two prefetches, with the second being a few words ahead
+     of the first. Most of the time, these will land in the same
+     cacheline, be coalesced by hardware, and so not cost any more
+     than a single prefetch. Two memory operations are issued only
+     when the two prefetches land in different cachelines.
+     In the case where the block is not already in cache, and yet is
+     already marked, not markable, or extremely short, then we waste
+     somewhere between 1/8-1/2 of a prefetch operation (in expectation,
+     depending on alignment, word size, and cache line size), which is
+     cheap enough to make this worthwhile. */
+  caml_prefetch(Hp_val(v));
+  caml_prefetch((void*)&Field(v, 3));
+}
+
+#define PREFETCH_BUFFER_SIZE  (1 << 8)
+#define PREFETCH_BUFFER_MIN   64
+#define PREFETCH_BUFFER_MASK  (PREFETCH_BUFFER_SIZE - 1)
+
+typedef struct prefetch_buffer {
+  uintnat enqueued;
+  uintnat dequeued;
+  value buffer[PREFETCH_BUFFER_SIZE];
+} prefetch_buffer_t;
+
+static void prefetch_buffer_init(prefetch_buffer_t* pb)
+{
+  pb->enqueued = 0;
+  pb->dequeued = 0;
+}
+
+Caml_inline bool prefetch_buffer_empty(prefetch_buffer_t* pb)
+{
+  return pb->enqueued == pb->dequeued;
+}
+
+Caml_inline bool prefetch_buffer_full(prefetch_buffer_t* pb)
+{
+  return pb->enqueued == pb->dequeued + PREFETCH_BUFFER_SIZE;
+}
+
+Caml_inline uintnat prefetch_buffer_size(prefetch_buffer_t* pb)
+{
+  return pb->enqueued - pb->dequeued;
+}
+
+Caml_inline void prefetch_buffer_push(prefetch_buffer_t* pb, value v)
+{
+  CAMLassert(Is_block(v) && !Is_young(v));
+  CAMLassert(v != Debug_free_major);
+  CAMLassert(pb->enqueued < pb->dequeued + PREFETCH_BUFFER_SIZE);
+
+  pb->buffer[pb->enqueued & PREFETCH_BUFFER_MASK] = v;
+  pb->enqueued += 1;
+}
+
+Caml_inline value prefetch_buffer_pop(prefetch_buffer_t* pb)
+{
+  CAMLassert(pb->enqueued > pb->dequeued);
+
+  value v = pb->buffer[pb->dequeued & PREFETCH_BUFFER_MASK];
+  pb->dequeued += 1;
+  return v;
+}
+
+Caml_inline value prefetch_buffer_head(prefetch_buffer_t* pb)
+{
+  CAMLassert(pb->enqueued > pb->dequeued);
+
+  value v = pb->buffer[pb->dequeued & PREFETCH_BUFFER_MASK];
+  return v;
+}
+
+Caml_inline bool prefetch_buffer_above_watermark(prefetch_buffer_t* pb)
+{
+  return (pb->enqueued - pb->dequeued) > PREFETCH_BUFFER_MIN;
+}
+
+/* -------------------------------------------------------------------------- */
 
 /* NB the MARK_STACK_INIT_SIZE must be larger than the number of objects
    that can be in a pool, see POOL_WSIZE */
@@ -66,6 +155,7 @@ struct mark_stack {
   mark_entry* stack;
   uintnat count;
   uintnat size;
+  prefetch_buffer_t prefetch_buffer;
   struct addrmap compressed_stack;
   addrmap_iterator compressed_stack_iter;
 };
@@ -601,6 +691,11 @@ static void realloc_mark_stack (struct mark_stack* stk)
   mark_stack_prune(stk);
 }
 
+Caml_inline uintnat mark_stack_total_count(struct mark_stack* stk)
+{
+  return prefetch_buffer_size(&stk->prefetch_buffer) + stk->count;
+}
+
 Caml_inline void mark_stack_push_range(struct mark_stack* stk,
                                        value* start, value* end)
 {
@@ -612,6 +707,29 @@ Caml_inline void mark_stack_push_range(struct mark_stack* stk,
   me = &stk->stack[stk->count++];
   me->start = start;
   me->end = end;
+}
+
+Caml_inline mark_entry mark_stack_pop_entry(struct mark_stack* stk)
+{
+  mark_entry me;
+
+  CAMLassert(stk->count > 0);
+  me = stk->stack[--stk->count];
+  return me;
+}
+
+Caml_inline bool mark_stack_has_hot_block(struct mark_stack* stk)
+{
+  prefetch_buffer_t* pb = &stk->prefetch_buffer;
+
+  return prefetch_buffer_above_watermark(pb);
+}
+
+Caml_inline value mark_stack_pop_hot_block(struct mark_stack* stk)
+{
+  prefetch_buffer_t* pb = &stk->prefetch_buffer;
+
+  return prefetch_buffer_pop(pb);
 }
 
 /* returns the work done by skipping unmarkable objects */
@@ -651,9 +769,24 @@ static intnat mark_stack_push_block(struct mark_stack* stk, value block)
     return Whsize_wosize(block_wsz - offset);
   }
 
-  mark_stack_push_range(stk,
-                        Op_val(block) + i,
-                        Op_val(block) + block_wsz);
+  for (; i < block_wsz; i++) {
+    if (prefetch_buffer_full(&stk->prefetch_buffer))
+      break;
+
+    value v = Field(block, i);
+
+    if (Is_markable(v)) {
+      prefetch_block(v);
+      prefetch_buffer_push(&stk->prefetch_buffer, Field(block, i));
+    }
+  }
+
+  if (i < block_wsz) {
+    caml_prefetch(Op_val(block) + i + 1); // FIXME
+    mark_stack_push_range(stk,
+                          Op_val(block) + i,
+                          Op_val(block) + block_wsz);
+  }
 
   /* take credit for the work we skipped due to the optimisation.
      we will take credit for the header later as part of marking. */
@@ -725,18 +858,25 @@ static void mark_slice_darken(struct mark_stack* stk, value child,
 }
 
 static intnat do_some_marking(struct mark_stack* stk, intnat budget) {
-  while (stk->count > 0) {
-    mark_entry me = stk->stack[--stk->count];
-    while (me.start < me.end) {
-      if (budget <= 0) {
-        mark_stack_push_range(stk, me.start, me.end);
-        return budget;
-      }
+  while (mark_stack_total_count(stk) > 0) {
+    if (mark_stack_has_hot_block(stk) || stk->count == 0) {
+      value v = mark_stack_pop_hot_block(stk);
       budget--;
-      mark_slice_darken(stk, *me.start, &budget);
-      me.start++;
+      mark_slice_darken(stk, v, &budget);
     }
-    budget--; /* credit for header */
+    else {
+      mark_entry me = mark_stack_pop_entry(stk);
+      while (me.start < me.end) {
+        if (budget <= 0) {
+          mark_stack_push_range(stk, me.start, me.end);
+          return budget;
+        }
+        budget--;
+        mark_slice_darken(stk, *me.start, &budget);
+        me.start++;
+      }
+      budget--; /* credit for header */
+    }
   }
   return budget;
 }
@@ -1086,7 +1226,7 @@ static void cycle_all_domains_callback(caml_domain_state* domain, void* unused,
   }
   CAML_EV_END(EV_MAJOR_MARK_ROOTS);
 
-  if (domain->mark_stack->count == 0 &&
+  if (mark_stack_total_count(domain->mark_stack) == 0 &&
       !caml_addrmap_iter_ok(&domain->mark_stack->compressed_stack,
                             domain->mark_stack->compressed_stack_iter)
       ) {
@@ -1574,6 +1714,7 @@ int caml_init_major_gc(caml_domain_state* d) {
   if(d->mark_stack == NULL) {
     return -1;
   }
+  prefetch_buffer_init(&d->mark_stack->prefetch_buffer);
   d->mark_stack->stack =
     caml_stat_alloc_noexc(MARK_STACK_INIT_SIZE * sizeof(mark_entry));
   if(d->mark_stack->stack == NULL) {
