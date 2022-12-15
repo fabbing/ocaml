@@ -896,7 +896,7 @@ Caml_noinline static intnat do_some_marking(struct mark_stack* stk, intnat budge
       }
       CAMLassert(!Has_status_hd(hd, heap_state.GARBAGE));
 
-      CAMLassert(Wosize_hd(hd) < 10 * 1024 * 1024);
+      //CAMLassert(Wosize_hd(hd) < 10 * 1024 * 1024);
       //CAMLassert(Tag_hd(hd) == 0 || Tag_hd(hd) == 252 || Wosize_hd(hd) < 100);
 
       if (!Has_status_hd(hd, heap_state.UNMARKED)) {
@@ -905,7 +905,7 @@ Caml_noinline static intnat do_some_marking(struct mark_stack* stk, intnat budge
       }
       blocks_marked++;
 
-      if (Tag_hd(block) == Cont_tag) {
+      if (Tag_hd(hd) == Cont_tag) {
         caml_darken_cont(block);
         budget -= Wosize_hd(block);
         continue;
