@@ -145,7 +145,7 @@ Caml_inline void prefetch_block(value v)
 typedef struct prefetch_buffer {
   uintnat enqueued;
   uintnat dequeued;
-  uintnat watermark;
+  uintnat waterline;
   value   buffer[PREFETCH_BUFFER_SIZE];
 } prefetch_buffer_t;
 
@@ -159,19 +159,19 @@ static inline bool pb_full(const prefetch_buffer_t *pb)
   return pb->enqueued == (pb->dequeued + PREFETCH_BUFFER_SIZE);
 }
 
-static inline bool pb_above_watermark(const prefetch_buffer_t *pb)
+static inline bool pb_above_waterline(const prefetch_buffer_t *pb)
 {
-  return ((pb->enqueued - pb->dequeued) > pb->watermark);
+  return ((pb->enqueued - pb->dequeued) > pb->waterline);
 }
 
 static inline void pb_drain(prefetch_buffer_t *pb)
 {
-  pb->watermark = 0;
+  pb->waterline = 0;
 }
 
 static inline void pb_fill(prefetch_buffer_t *pb)
 {
-  pb->watermark = PREFETCH_BUFFER_MIN;
+  pb->waterline = PREFETCH_BUFFER_MIN;
 }
 
 static inline void pb_push(prefetch_buffer_t* pb, value v)
@@ -828,47 +828,6 @@ void caml_shrink_mark_stack (void)
 
 void caml_darken_cont(value cont);
 
-static value mark_slice_darken_only(value child, intnat* work)
-{
-  header_t chd;
-
-  if (Is_markable(child)){
-    chd = Hd_val(child);
-    if (Tag_hd(chd) == Infix_tag) {
-      child -= Infix_offset_hd(chd);
-      chd = Hd_val(child);
-    }
-    CAMLassert(!Has_status_hd(chd, caml_global_heap_state.GARBAGE));
-    if (Has_status_hd(chd, caml_global_heap_state.UNMARKED)){
-      Caml_state->stat_blocks_marked++;
-      if (Tag_hd(chd) == Cont_tag){
-        caml_darken_cont(child);
-        *work -= Wosize_hd(chd);
-      } else {
-    again:
-        if (Tag_hd(chd) == Lazy_tag || Tag_hd(chd) == Forcing_tag){
-          if (!atomic_compare_exchange_strong(Hp_atomic_val(child), &chd,
-                With_status_hd(chd, caml_global_heap_state.MARKED))){
-                  chd = Hd_val(child);
-                  goto again;
-          }
-        } else {
-          atomic_store_relaxed(
-            Hp_atomic_val(child),
-            With_status_hd(chd, caml_global_heap_state.MARKED));
-        }
-        if(Tag_hd(chd) < No_scan_tag){
-          return child;
-        } else {
-          *work -= Wosize_hd(chd);
-        }
-      }
-    }
-  }
-  return 0;
-}
-
-
 static void mark_slice_darken(struct mark_stack* stk, value child,
                               intnat* work)
 {
@@ -918,18 +877,60 @@ static void mark_slice_darken(struct mark_stack* stk, value child,
 
 static intnat do_some_marking(struct mark_stack* stk, intnat budget) {
 
-  prefetch_buffer_t pb = { .enqueued = 0, .dequeued = 0, .watermark = PREFETCH_BUFFER_MIN };
-  value v;
+  prefetch_buffer_t pb = { .enqueued = 0, .dequeued = 0, .waterline = PREFETCH_BUFFER_MIN };
+  value block;
+  header_t hd;
   mark_entry me;
 
   while (1) {
-    if (pb_above_watermark(&pb)) {
-      v = pb_pop(&pb);
-      me.start = &v;
-      me.end = me.start + 1;
+    if (pb_above_waterline(&pb)) {
+      block = pb_pop(&pb);
+      CAMLassert(Is_markable(block));
+
+      hd = Hd_val(block);
+      if (Tag_hd(hd) == Infix_tag) {
+        block -= Infix_offset_hd(hd);
+        hd = Hd_val(block);
+      }
+      CAMLassert(!Has_status_hd(hd, caml_global_heap_state.GARBAGE));
+
+      CAMLassert(Wosize_hd(hd) < 10 * 1024 * 1024);
+      //CAMLassert(Tag_hd(hd) == 0 || Tag_hd(hd) == 252 || Wosize_hd(hd) < 100);
+
+      if (!Has_status_hd(hd, caml_global_heap_state.UNMARKED)) {
+        /* Already black, nothing to do */
+        continue;
+      }
+      Caml_state->stat_blocks_marked++;
+
+      if (Tag_hd(block) == Cont_tag) {
+        caml_darken_cont(block);
+        budget -= Wosize_hd(block);
+        continue;
+      }
+
+      atomic_store_relaxed(
+          Hp_atomic_val(block),
+          With_status_hd(hd, caml_global_heap_state.MARKED));
+
+      budget--; /* header word */
+      if (Tag_hd(hd) >= No_scan_tag) {
+        /* Nothing to scan here */
+        budget -= Wosize_hd (hd);
+        continue;
+      }
+      
+      me.start = Op_val(block);
+      me.end = me.start + Wosize_hd(hd);
+
+      if (Tag_hd(hd) == Closure_tag) {
+        uintnat env_offset = Start_env_closinfo(Closinfo_val(block));
+        budget -= env_offset;
+        me.start += env_offset;
+      }
     }
     else if (budget <= 0 || stk->count == 0) {
-      if (pb.watermark > 0) {
+      if (pb.waterline > 0) {
         pb_drain(&pb);
         continue;
       }
@@ -939,39 +940,29 @@ static intnat do_some_marking(struct mark_stack* stk, intnat budget) {
     }
     else {
       me = stk->stack[--stk->count];
-      budget--; /* credit for header */
     }
-
+    
     while (me.start < me.end) {
       if (budget <= 0) {
-        mark_stack_push_range(stk, me.start, me.end);
         break;
       }
       budget--;
 
-      value child = mark_slice_darken_only(*me.start, &budget);
-      if (child) {
-        mark_entry e = mark_slice_make_entry(child, &budget);
-
-        for (; e.start < e.end; e.start++ ) {
-          value v = *e.start;
-          if (!Is_markable(v))
-            continue;
-          if (pb_full(&pb))
-            break;
-          prefetch_block(v);
-          pb_push(&pb, *e.start);
-        }
-        if (e.start < e.end) {
-          // TODO prefetch
-          mark_stack_push_range(stk, e.start, e.end);
-          pb_fill(&pb);
-        }
+      value child = *me.start;
+      if (Is_markable(child)) {
+        if (pb_full(&pb))
+          break;
+        prefetch_block(child);
+        pb_push(&pb, child);
       }
-
       me.start++;
     }
 
+    if (me.start < me.end) {
+      mark_stack_push_range(stk, me.start, me.end);
+      caml_prefetch(me.start+1);
+      pb_fill(&pb);
+    }
   }
   CAMLassert(pb_empty(&pb));
   return budget;
