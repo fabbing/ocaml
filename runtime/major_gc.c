@@ -875,12 +875,14 @@ static void mark_slice_darken(struct mark_stack* stk, value child,
   }
 }
 
-static intnat do_some_marking(struct mark_stack* stk, intnat budget) {
+Caml_noinline static intnat do_some_marking(struct mark_stack* stk, intnat budget) {
 
   prefetch_buffer_t pb = { .enqueued = 0, .dequeued = 0, .waterline = PREFETCH_BUFFER_MIN };
   value block;
   header_t hd;
   mark_entry me;
+  uintnat blocks_marked = 0;
+  struct global_heap_state heap_state = caml_global_heap_state;
 
   while (1) {
     if (pb_above_waterline(&pb)) {
@@ -892,16 +894,16 @@ static intnat do_some_marking(struct mark_stack* stk, intnat budget) {
         block -= Infix_offset_hd(hd);
         hd = Hd_val(block);
       }
-      CAMLassert(!Has_status_hd(hd, caml_global_heap_state.GARBAGE));
+      CAMLassert(!Has_status_hd(hd, heap_state.GARBAGE));
 
       CAMLassert(Wosize_hd(hd) < 10 * 1024 * 1024);
       //CAMLassert(Tag_hd(hd) == 0 || Tag_hd(hd) == 252 || Wosize_hd(hd) < 100);
 
-      if (!Has_status_hd(hd, caml_global_heap_state.UNMARKED)) {
+      if (!Has_status_hd(hd, heap_state.UNMARKED)) {
         /* Already black, nothing to do */
         continue;
       }
-      Caml_state->stat_blocks_marked++;
+      blocks_marked++;
 
       if (Tag_hd(block) == Cont_tag) {
         caml_darken_cont(block);
@@ -911,7 +913,7 @@ static intnat do_some_marking(struct mark_stack* stk, intnat budget) {
 
       atomic_store_relaxed(
           Hp_atomic_val(block),
-          With_status_hd(hd, caml_global_heap_state.MARKED));
+          With_status_hd(hd, heap_state.MARKED));
 
       budget--; /* header word */
       if (Tag_hd(hd) >= No_scan_tag) {
@@ -919,7 +921,7 @@ static intnat do_some_marking(struct mark_stack* stk, intnat budget) {
         budget -= Wosize_hd (hd);
         continue;
       }
-      
+
       me.start = Op_val(block);
       me.end = me.start + Wosize_hd(hd);
 
@@ -941,13 +943,15 @@ static intnat do_some_marking(struct mark_stack* stk, intnat budget) {
     else {
       me = stk->stack[--stk->count];
     }
-    
-    while (me.start < me.end) {
-      if (budget <= 0) {
-        break;
-      }
-      budget--;
 
+    value* scan_end = me.end;
+    if (scan_end - me.start > budget) {
+      intnat scan_len = budget < 0 ? 0 : budget;
+      scan_end = me.start + scan_len;
+    }
+
+    while (me.start < scan_end) {
+      CAMLassert(budget >= 0);
       value child = *me.start;
       if (Is_markable(child)) {
         if (pb_full(&pb))
@@ -964,6 +968,7 @@ static intnat do_some_marking(struct mark_stack* stk, intnat budget) {
       pb_fill(&pb);
     }
   }
+  Caml_state->stat_blocks_marked += blocks_marked;
   CAMLassert(pb_empty(&pb));
   return budget;
 }
@@ -1450,7 +1455,7 @@ static char collection_slice_mode_char(collection_slice_mode mode)
   }
 }
 
-#define Chunk_size 0x400
+#define Chunk_size 0x40000
 
 static intnat major_collection_slice(intnat howmuch,
                                      int participant_count,
