@@ -146,45 +146,50 @@ typedef struct prefetch_buffer {
   uintnat enqueued;
   uintnat dequeued;
   uintnat watermark;
-  value*  buffer[PREFETCH_BUFFER_SIZE];
+  value   buffer[PREFETCH_BUFFER_SIZE];
 } prefetch_buffer_t;
 
-#define Pb_empty(pb)            (pb.enqueued == pb.dequeued)
-#define Pb_full(pb)             (pb.enqueued == pb.dequeued \
-                                  + PREFETCH_BUFFER_SIZE)
+static inline bool pb_empty(const prefetch_buffer_t *pb)
+{
+  return pb->enqueued == pb->dequeued;
+}
 
-#define Pb_above_watermark(pb)  ((pb.enqueued - pb.dequeued) > pb.watermark)
+static inline bool pb_full(const prefetch_buffer_t *pb)
+{
+  return pb->enqueued == (pb->dequeued + PREFETCH_BUFFER_SIZE);
+}
 
-#define Pb_drain(pb)            (pb.watermark = 0)
-#define Pb_fill(pb)             (pb.watermark = PREFETCH_BUFFER_MIN)
+static inline bool pb_above_watermark(const prefetch_buffer_t *pb)
+{
+  return ((pb->enqueued - pb->dequeued) > pb->watermark);
+}
 
-#define Pb_push(pb, pv)          ({                                 \
-  CAMLassert(Is_block(*pv) && !Is_young(*pv));                      \
-  CAMLassert(*pv != Debug_free_major);                              \
-  CAMLassert(pb.enqueued < pb.dequeued + PREFETCH_BUFFER_SIZE);     \
-  pb.buffer[pb.enqueued & PREFETCH_BUFFER_MASK] = pv;               \
-  pb.enqueued += 1;                                                 \
-})
+static inline void pb_drain(prefetch_buffer_t *pb)
+{
+  pb->watermark = 0;
+}
 
-#define Pb_pop(pb)              ({                                  \
-    CAMLassert(pb.enqueued > pb.dequeued);                          \
-    value* pv = pb.buffer[pb.dequeued & PREFETCH_BUFFER_MASK];      \
-    pb.dequeued += 1;                                               \
-    pv; })
+static inline void pb_fill(prefetch_buffer_t *pb)
+{
+  pb->watermark = PREFETCH_BUFFER_MIN;
+}
 
-#define Pb_pop_entry(pb)        ({                                  \
-    mark_entry me;                                                  \
-    CAMLassert(pb.enqueued > pb.dequeued);                          \
-    value* pv = pb.buffer[pb.dequeued++ & PREFETCH_BUFFER_MASK];    \
-    me.start = pv;                                                  \
-    me.end = me.start + 1;                                          \
-    while (pb.enqueued < pb.dequeued) {                             \
-      if (pb.buffer[pb.dequeued] == me.end) {                       \
-        me.end += 1;                                                \
-        pb.dequeued += 1;                                           \
-      }                                                             \
-    }                                                               \
-    me; })
+static inline void pb_push(prefetch_buffer_t* pb, value v)
+{
+  CAMLassert(Is_block(v) && !Is_young(v));
+  CAMLassert(v != Debug_free_major);
+  CAMLassert(pb->enqueued < pb->dequeued + PREFETCH_BUFFER_SIZE);
+  pb->buffer[pb->enqueued & PREFETCH_BUFFER_MASK] = v;
+  pb->enqueued += 1;
+}
+
+static inline value pb_pop(prefetch_buffer_t *pb)
+{
+  CAMLassert(pb->enqueued > pb->dequeued);
+  value v = pb->buffer[pb->dequeued & PREFETCH_BUFFER_MASK];
+  pb->dequeued += 1;
+  return v;
+}
 
 /* -------------------------------------------------------------------------- */
 
@@ -914,17 +919,18 @@ static void mark_slice_darken(struct mark_stack* stk, value child,
 static intnat do_some_marking(struct mark_stack* stk, intnat budget) {
 
   prefetch_buffer_t pb = { .enqueued = 0, .dequeued = 0, .watermark = PREFETCH_BUFFER_MIN };
+  value v;
   mark_entry me;
 
   while (1) {
-    if (Pb_above_watermark(pb)) {
-      //me.start = Pb_pop(pb);
-      //me.end = me.start + 1;
-      me = Pb_pop_entry(pb);
+    if (pb_above_watermark(&pb)) {
+      v = pb_pop(&pb);
+      me.start = &v;
+      me.end = me.start + 1;
     }
     else if (budget <= 0 || stk->count == 0) {
       if (pb.watermark > 0) {
-        Pb_drain(pb);
+        pb_drain(&pb);
         continue;
       }
       else {
@@ -951,15 +957,15 @@ static intnat do_some_marking(struct mark_stack* stk, intnat budget) {
           value v = *e.start;
           if (!Is_markable(v))
             continue;
-          if (Pb_full(pb))
+          if (pb_full(&pb))
             break;
           prefetch_block(v);
-          Pb_push(pb, e.start);
+          pb_push(&pb, *e.start);
         }
         if (e.start < e.end) {
           // TODO prefetch
           mark_stack_push_range(stk, e.start, e.end);
-          Pb_fill(pb);
+          pb_fill(&pb);
         }
       }
 
@@ -967,7 +973,7 @@ static intnat do_some_marking(struct mark_stack* stk, intnat budget) {
     }
 
   }
-  CAMLassert(Pb_empty(pb));
+  CAMLassert(pb_empty(&pb));
   return budget;
 }
 
