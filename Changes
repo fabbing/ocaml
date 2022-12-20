@@ -32,6 +32,9 @@ Working version
 - #11764: add prototypes to old-style C function definitions and declarations
   (Antonin Décimo, review by Xavier Leroy)
 
+- #11827: Restore prefetching for GC marking
+  (Fabrice Buoro and Stephen Dolan, review by ...)
+
 ### Type system:
 
 - #6941, #11187: prohibit using classes through recursive modules
