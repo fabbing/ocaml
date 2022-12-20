@@ -124,11 +124,6 @@ typedef struct prefetch_buffer {
   value   buffer[PREFETCH_BUFFER_SIZE];
 } prefetch_buffer_t;
 
-Caml_inline bool pb_empty(const prefetch_buffer_t *pb)
-{
-  return pb->enqueued == pb->dequeued;
-}
-
 Caml_inline bool pb_full(const prefetch_buffer_t *pb)
 {
   return pb->enqueued == (pb->dequeued + PREFETCH_BUFFER_SIZE);
@@ -920,7 +915,7 @@ Caml_noinline static intnat do_some_marking(struct mark_stack* stk,
   }
 
   Caml_state->stat_blocks_marked += blocks_marked;
-  CAMLassert(pb_empty(&pb));
+  CAMLassert(pb_size(&pb) == 0);
   return budget;
 }
 
