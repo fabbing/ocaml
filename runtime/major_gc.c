@@ -817,8 +817,8 @@ static void mark_slice_darken(struct mark_stack* stk, value child,
   }
 }
 
-Caml_noinline static intnat do_some_marking(struct mark_stack* stk, intnat budget) {
-
+Caml_noinline static intnat do_some_marking(struct mark_stack* stk,
+                                            intnat budget) {
   prefetch_buffer_t pb = { .enqueued = 0, .dequeued = 0,
                            .waterline = PREFETCH_BUFFER_MIN };
   mark_entry me;
