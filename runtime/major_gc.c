@@ -907,6 +907,7 @@ again:
       CAMLassert(budget >= 0);
 
       value child = *me.start;
+      budget--;
       if (Is_markable(child)) {
         if (pb_full(&pb))
           break;
