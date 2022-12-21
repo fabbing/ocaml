@@ -875,6 +875,7 @@ Caml_noinline static intnat do_some_marking(struct mark_stack* stk,
       CAMLassert(budget >= 0);
 
       value child = *me.start;
+      budget--;
       if (Is_markable(child)) {
         if (pb_full(&pb))
           break;
