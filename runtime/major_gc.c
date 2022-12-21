@@ -856,7 +856,8 @@ Caml_noinline static intnat do_some_marking(struct mark_stack* stk,
         continue;
       }
       else {
-        /* Couldn't find work with min_pb == 0, so there's nothing to do */
+        /* Couldn't find work with pb in draining mode,
+           so there's nothing to do */
         break;
       }
     }
