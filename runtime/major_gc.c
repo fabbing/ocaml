@@ -139,12 +139,12 @@ Caml_inline bool pb_above_waterline(const prefetch_buffer_t *pb)
   return ((pb->enqueued - pb->dequeued) > pb->waterline);
 }
 
-Caml_inline void pb_drain(prefetch_buffer_t *pb)
+Caml_inline void pb_drain_mode(prefetch_buffer_t *pb)
 {
   pb->waterline = 0;
 }
 
-Caml_inline void pb_fill(prefetch_buffer_t *pb)
+Caml_inline void pb_fill_mode(prefetch_buffer_t *pb)
 {
   pb->waterline = PREFETCH_BUFFER_MIN;
 }
@@ -852,7 +852,7 @@ Caml_noinline static intnat do_some_marking(struct mark_stack* stk,
       if (pb.waterline > 0) {
         /* Dequeue from pb even when close to empty, because
            we have nothing else to do */
-        pb_drain(&pb);
+        pb_drain_mode(&pb);
         continue;
       }
       else {
@@ -892,7 +892,7 @@ Caml_noinline static intnat do_some_marking(struct mark_stack* stk,
       if (pb_size(&pb) > PREFETCH_BUFFER_MIN) {
         /* We may have just discovered more work when we were about to run out.
            Reset waterline so that we try to refill the buffer again. */
-        pb_fill(&pb);
+        pb_fill_mode(&pb);
       }
     }
   }
