@@ -1384,7 +1384,7 @@ static char collection_slice_mode_char(collection_slice_mode mode)
   }
 }
 
-#define Chunk_size 0x4000
+#define Chunk_size 0x400
 
 static intnat major_collection_slice(intnat howmuch,
                                      int participant_count,
