@@ -772,19 +772,21 @@ void caml_shrink_mark_stack (void)
 
 void caml_darken_cont(value cont);
 
-Caml_inline value mark_slice_darken_only(value child, intnat* work)
+Caml_inline value mark_slice_darken_only(value child, intnat* work,
+                                         uintnat* stat_blocks_marked,
+                                         const struct global_heap_state* ghs)
 {
   header_t chd;
 
-  if (Is_markable(child)){
+    CAMLassert(Is_markable(child));
     chd = Hd_val(child);
     if (Tag_hd(chd) == Infix_tag) {
       child -= Infix_offset_hd(chd);
       chd = Hd_val(child);
     }
-    CAMLassert(!Has_status_hd(chd, caml_global_heap_state.GARBAGE));
-    if (Has_status_hd(chd, caml_global_heap_state.UNMARKED)){
-      Caml_state->stat_blocks_marked++;
+    CAMLassert(!Has_status_hd(chd, ghs->GARBAGE));
+    if (Has_status_hd(chd, ghs->UNMARKED)){
+      *stat_blocks_marked += 1;
       if (Tag_hd(chd) == Cont_tag){
         caml_darken_cont(child);
         *work -= Wosize_hd(chd);
@@ -792,14 +794,14 @@ Caml_inline value mark_slice_darken_only(value child, intnat* work)
     again:
         if (Tag_hd(chd) == Lazy_tag || Tag_hd(chd) == Forcing_tag){
           if(!atomic_compare_exchange_strong(Hp_atomic_val(child), &chd,
-                With_status_hd(chd, caml_global_heap_state.MARKED))){
+                With_status_hd(chd, ghs->MARKED))){
                   chd = Hd_val(child);
                   goto again;
           }
         } else {
           atomic_store_relaxed(
             Hp_atomic_val(child),
-            With_status_hd(chd, caml_global_heap_state.MARKED));
+            With_status_hd(chd, ghs->MARKED));
         }
         if(Tag_hd(chd) < No_scan_tag){
           return child;
@@ -808,16 +810,22 @@ Caml_inline value mark_slice_darken_only(value child, intnat* work)
         }
       }
     }
-  }
   return 0;
 }
 
 static void mark_slice_darken(struct mark_stack* stk, value child,
                               intnat* work)
 {
-  child = mark_slice_darken_only(child, work);
-  if (child) {
-    *work -= mark_stack_push_block(stk, child);
+  uintnat blocks_marked = 0;
+
+  if (Is_markable(child)) {
+    child = mark_slice_darken_only(child, work, &blocks_marked,
+        &caml_global_heap_state);
+
+    if (child) {
+      *work -= mark_stack_push_block(stk, child);
+    }
+    Caml_state->stat_blocks_marked += blocks_marked;
   }
 }
 
@@ -826,6 +834,10 @@ Caml_noinline static intnat do_some_marking(struct mark_stack* stk,
   prefetch_buffer_t pb = { .enqueued = 0, .dequeued = 0,
                            .waterline = PREFETCH_BUFFER_MIN };
   mark_entry me;
+  /* These global values are cached in locals,
+     so that they can be stored in registers */
+  struct global_heap_state heap_state = caml_global_heap_state;
+  uintnat blocks_marked = 0;
 
   while (1) {
     if (pb_above_waterline(&pb)) {
@@ -833,7 +845,8 @@ Caml_noinline static intnat do_some_marking(struct mark_stack* stk,
       value block = pb_pop(&pb);
       CAMLassert(Is_markable(block));
 
-      block = mark_slice_darken_only(block, &budget);
+      block = mark_slice_darken_only(block, &budget, &blocks_marked,
+          &heap_state);
       budget--; /* header word */
       if (!block)
         continue;
@@ -898,6 +911,7 @@ Caml_noinline static intnat do_some_marking(struct mark_stack* stk,
     }
   }
 
+  Caml_state->stat_blocks_marked += blocks_marked;
   CAMLassert(pb_size(&pb) == 0);
   return budget;
 }
