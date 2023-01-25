@@ -817,7 +817,7 @@ static void mark_slice_darken(struct mark_stack* stk, value child,
 {
   child = mark_slice_darken_only(child, work);
   if (child) {
-    *work -= mark_stack_push_block(stk, child);
+    mark_stack_push_block(stk, child);
   }
 }
 
