@@ -778,6 +778,10 @@ static void mark_slice_darken(struct mark_stack* stk, value child,
   header_t chd;
 
   if (Is_markable(child)){
+
+  /* This part of the code is duplicated in do_some_marking for performance
+   * reasons.
+   * Changes here should probably be reflected in do_some_marking. */
     chd = Hd_val(child);
     if (Tag_hd(chd) == Infix_tag) {
       child -= Infix_offset_hd(chd);
@@ -827,6 +831,10 @@ Caml_noinline static intnat do_some_marking(struct mark_stack* stk,
       /* Dequeue from prefetch buffer */
       value block = pb_pop(&pb);
       CAMLassert(Is_markable(block));
+
+      /* This part of the code is a duplicate of mark_slice_darken for
+       * performance reasons.
+       * Changes here should probably be reflected here in mark_slice_darken. */
       header_t hd = Hd_val(block);
 
       if (Tag_hd(hd) == Infix_tag) {
@@ -847,8 +855,18 @@ Caml_noinline static intnat do_some_marking(struct mark_stack* stk,
         continue;
       }
 
-      atomic_store_relaxed(Hp_atomic_val(block),
-                           With_status_hd(hd, heap_state.MARKED));
+again:
+      if (Tag_hd(hd) == Lazy_tag || Tag_hd(hd) == Forcing_tag) {
+        if (!atomic_compare_exchange_strong(Hp_atomic_val(block), &hd,
+              With_status_hd(hd, caml_global_heap_state.MARKED))) {
+          hd = Hd_val(block);
+          goto again;
+        }
+      } else {
+        atomic_store_relaxed(
+            Hp_atomic_val(block),
+            With_status_hd(hd, caml_global_heap_state.MARKED));
+      }
 
       budget--; /* header word */
       if (Tag_hd(hd) >= No_scan_tag) {
