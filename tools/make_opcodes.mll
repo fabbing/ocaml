@@ -33,8 +33,10 @@ and opnames = parse
   let () =
     let spec =
       [
-        "-opnames", Arg.Set print_opnames, " Dump opcode names", { Arg.introduced_version = None; deprecated_version = None };
-        "-opcodes", Arg.Set print_opcodes, " Dump opcode numbers", { Arg.introduced_version = None; deprecated_version = None };
+        "-opnames", Arg.Set print_opnames, " Dump opcode names",
+          Arg.Status.empty;
+        "-opcodes", Arg.Set print_opcodes, " Dump opcode numbers",
+          Arg.Status.empty;
       ]
     in
     Arg.parse (Arg.align spec) ignore "Extract opcode info from instruct.h";

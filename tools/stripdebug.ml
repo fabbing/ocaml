@@ -58,27 +58,26 @@ let stripdebug infile outfile =
   close_in ic;
   close_out oc
 
-let empty_status : Arg.status =
-  { deprecated_version = None
-  ; introduced_version = None
-  }
-
 let options = [
   "-remove-header", Arg.Set remove_header,
-     "remove the header that calls ocamlrun automatically", empty_status;
+     "remove the header that calls ocamlrun automatically",
+     Arg.Status.empty;
   "-keep-header", Arg.Clear remove_header,
-     "preserve the header that calls ocamlrun automatically (default)", empty_status;
+     "preserve the header that calls ocamlrun automatically (default)",
+     Arg.Status.empty;
   "-remove-debug", Arg.Set remove_DBUG,
-     "remove all debugging information (default)", empty_status;
+     "remove all debugging information (default)", Arg.Status.empty;
   "-keep-debug", Arg.Clear remove_DBUG,
-     "preserve all debugging information", empty_status;
+     "preserve all debugging information", Arg.Status.empty;
   "-remove-dynlink", Arg.Set remove_CRCS,
-     "remove the data needed for dynamic code loading", empty_status;
+     "remove the data needed for dynamic code loading", Arg.Status.empty;
   "-keep-dynlink", Arg.Clear remove_CRCS,
-     "preserve the data needed for dynamic code loading (default)", empty_status;
+     "preserve the data needed for dynamic code loading (default)",
+     Arg.Status.empty;
   "-all", Arg.Unit (fun () -> remove_header := true; remove_DBUG := true;
                               remove_CRCS := true),
-     "remove header, debugging info, and dynamic code loading info", empty_status
+     "remove header, debugging info, and dynamic code loading info",
+     Arg.Status.empty
 ]
 
 let usage =

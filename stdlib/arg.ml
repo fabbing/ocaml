@@ -18,14 +18,13 @@ type doc = string
 type usage_msg = string
 type anon_fun = (string -> unit)
 
-type status =
-  { introduced_version : string option
-  ; deprecated_version : string option
-  }
+module Status = struct
+  type t = {
+    introduced_version : string option;
+    deprecated_version : string option }
 
-let empty_status =
-  { introduced_version = None;
-    deprecated_version = None; }
+  let empty = { introduced_version = None; deprecated_version = None; }
+end
 
 type spec =
   | Unit of (unit -> unit)     (* Call the function with unit argument *)
@@ -103,11 +102,12 @@ let add_help speclist =
   let add1 =
     try ignore (assoc4 "-help" speclist); []
     with Not_found ->
-            ["-help", Unit help_action, " Display this list of options", empty_status]
+      ["-help", Unit help_action, " Display this list of options", Status.empty]
   and add2 =
     try ignore (assoc4 "--help" speclist); []
     with Not_found ->
-            ["--help", Unit help_action, " Display this list of options", empty_status]
+      ["--help", Unit help_action, " Display this list of options",
+        Status.empty]
   in
   speclist @ (add1 @ add2)
 
@@ -115,12 +115,13 @@ let add_help speclist =
 let usage_b buf speclist errmsg =
   bprintf buf "%s\n" errmsg;
   let undeprecated, deprecated =
+    let open Status in
     List.partition
-       (fun (_, _, _, { deprecated_version; _ }) -> Option.is_none deprecated_version)
+       (fun (_, _, _, status) -> Option.is_none status.deprecated_version)
        (add_help speclist)
   in
   List.iter (print_spec buf) undeprecated;
-  bprintf buf "\neprecated arguments:\n";
+  bprintf buf "\nDeprecated arguments:\n";
   List.iter (print_spec buf) deprecated
 
 

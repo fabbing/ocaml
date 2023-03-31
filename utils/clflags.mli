@@ -256,7 +256,7 @@ val should_stop_after : Compiler_pass.t -> bool
 val set_save_ir_after : Compiler_pass.t -> bool -> unit
 val should_save_ir_after : Compiler_pass.t -> bool
 
-type arg_spec := string * Arg.spec * string * Arg.status
+type arg_spec := string * Arg.spec * string * Arg.Status.t
 
 val arg_spec : arg_spec list ref
 

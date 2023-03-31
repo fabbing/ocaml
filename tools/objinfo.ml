@@ -374,25 +374,21 @@ let dump_obj filename =
   then dump_cmxs ic
   else exit_magic_error ~expected_kind:None (Parse_error head_error)
 
-let empty_status : Arg.status =
-  { deprecated_version = None
-  ; introduced_version = None
-  }
-
 let arg_list = [
   "-no-approx", Arg.Set no_approx,
-    " Do not print module approximation information", empty_status;
+    " Do not print module approximation information", Arg.Status.empty;
   "-no-code", Arg.Set no_code,
-    " Do not print code from exported flambda functions", empty_status;
+    " Do not print code from exported flambda functions", Arg.Status.empty;
   "-shape", Arg.Set shape,
-    " Print the shape of the module", empty_status;
-  "-null-crc", Arg.Set no_crc, " Print a null CRC for imported interfaces", empty_status;
+    " Print the shape of the module", Arg.Status.empty;
+  "-null-crc", Arg.Set no_crc, " Print a null CRC for imported interfaces",
+    Arg.Status.empty;
   "-args", Arg.Expand Arg.read_arg,
      "<file> Read additional newline separated command line arguments \n\
-     \      from <file>", empty_status;
+     \      from <file>", Arg.Status.empty;
   "-args0", Arg.Expand Arg.read_arg0,
      "<file> Read additional NUL separated command line arguments from \n\
-     \      <file>", empty_status;
+     \      <file>", Arg.Status.empty;
 ]
 let arg_usage =
    Printf.sprintf "%s [OPTIONS] FILES : give information on files" Sys.argv.(0)

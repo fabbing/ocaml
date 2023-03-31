@@ -112,16 +112,20 @@ type doc = string
 type usage_msg = string
 type anon_fun = (string -> unit)
 
-type status =
-  { introduced_version : string option
-  ; deprecated_version : string option
-  }
+module Status : sig
+  (* FIXME abstract? *)
+  type t = {
+    introduced_version : string option;
+    deprecated_version : string option }
 
-type entry := key * spec * doc * status
+  val empty : t
+end
+
+type entry := key * spec * doc * Status.t
 
 val parse : entry list -> anon_fun -> usage_msg -> unit
 (** [Arg.parse speclist anon_fun usage_msg] parses the command line.
-    [speclist] is a list of triples [(key, spec, doc)].
+    [speclist] is a list of [Status.t].
     [key] is the option keyword, it must start with a ['-'] character.
     [spec] gives the option type and the function to call when this option
     is found on the command line.

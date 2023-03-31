@@ -50,6 +50,6 @@ module Make : OCAMLCP ->
       val rev_profargs : string list ref
       val add_profarg : string -> unit
       val anon : string -> unit
-      val optlist : (string * Arg.spec * string * Arg.status) list
+      val optlist : (string * Arg.spec * string * Arg.Status.t) list
       val main : unit -> 'a
     end

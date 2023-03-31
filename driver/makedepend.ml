@@ -586,7 +586,7 @@ let make_arg name type_ description =
   ( name
   , type_
   , description
-  , Arg.{ introduced_version = None; deprecated_version = None }
+  , Arg.Status.{ introduced_version = None; deprecated_version = None }
   )
 
 let run_main argv =
