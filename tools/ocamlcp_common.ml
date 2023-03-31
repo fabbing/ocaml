@@ -67,6 +67,11 @@ module Make(T: OCAMLCP) = struct
     process_file filename;
     rev_compargs := Filename.quote filename :: !rev_compargs
 
+  let empty_status : Arg.status =
+    { deprecated_version = None
+    ; introduced_version = None
+    }
+
   let optlist =
     let profarg =
       ("-P", Arg.String add_profarg,
@@ -76,13 +81,13 @@ module Make(T: OCAMLCP) = struct
           \032     i  if ... then ... else\n\
           \032     l  while and for loops\n\
           \032     m  match ... with\n\
-          \032     t  try ... with") in
+          \032     t  try ... with", empty_status) in
     let inherited_options =
       Main_args.options_with_command_line_syntax Options.list rev_compargs in
     if T.bytecode then
       profarg
       (* Add the legacy "-p" option *)
-      :: ("-p", Arg.String add_profarg, "[afilmt]  Same as option -P")
+      :: ("-p", Arg.String add_profarg, "[afilmt]  Same as option -P", empty_status)
       :: inherited_options
     else
       profarg

@@ -18,12 +18,18 @@ open Clflags
 
 module Options = Main_args.Make_bytecomp_options (Main_args.Default.Main)
 
+let empty_status : Arg.status =
+  { deprecated_version = None
+  ; introduced_version = None
+  }
+
 let main argv ppf =
   let program = "ocamlc" in
   Clflags.add_arguments __LOC__ Options.list;
   Clflags.add_arguments __LOC__
     ["-depend", Arg.Unit Makedepend.main_from_option,
-     "<options> Compute dependencies (use 'ocamlc -depend -help' for details)"];
+     "<options> Compute dependencies (use 'ocamlc -depend -help' for details)",
+     empty_status];
   let exception Continue in
   match
     Compenv.readenv ppf Before_args;

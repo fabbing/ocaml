@@ -18,6 +18,15 @@ type doc = string
 type usage_msg = string
 type anon_fun = (string -> unit)
 
+type status =
+  { introduced_version : string option
+  ; deprecated_version : string option
+  }
+
+let empty_status =
+  { introduced_version = None;
+    deprecated_version = None; }
+
 type spec =
   | Unit of (unit -> unit)     (* Call the function with unit argument *)
   | Bool of (bool -> unit)     (* Call the function with a bool argument *)
@@ -60,11 +69,11 @@ exception Stop of error (* used internally *)
 
 open Printf
 
-let rec assoc3 x l =
+let rec assoc4 x l =
   match l with
   | [] -> raise Not_found
-  | (y1, y2, _) :: _ when y1 = x -> y2
-  | _ :: t -> assoc3 x t
+  | (y1, y2, _, _) :: _ when y1 = x -> y2
+  | _ :: t -> assoc4 x t
 
 
 let split s =
@@ -79,7 +88,7 @@ let make_symlist prefix sep suffix l =
   | h::t -> (List.fold_left (fun x y -> x ^ sep ^ y) (prefix ^ h) t) ^ suffix
 
 
-let print_spec buf (key, spec, doc) =
+let print_spec buf (key, spec, doc, _) =
   if String.length doc > 0 then
     match spec with
     | Symbol (l, _) ->
@@ -92,20 +101,27 @@ let help_action () = raise (Stop (Unknown "-help"))
 
 let add_help speclist =
   let add1 =
-    try ignore (assoc3 "-help" speclist); []
+    try ignore (assoc4 "-help" speclist); []
     with Not_found ->
-            ["-help", Unit help_action, " Display this list of options"]
+            ["-help", Unit help_action, " Display this list of options", empty_status]
   and add2 =
-    try ignore (assoc3 "--help" speclist); []
+    try ignore (assoc4 "--help" speclist); []
     with Not_found ->
-            ["--help", Unit help_action, " Display this list of options"]
+            ["--help", Unit help_action, " Display this list of options", empty_status]
   in
   speclist @ (add1 @ add2)
 
 
 let usage_b buf speclist errmsg =
   bprintf buf "%s\n" errmsg;
-  List.iter (print_spec buf) (add_help speclist)
+  let undeprecated, deprecated =
+    List.partition
+       (fun (_, _, _, { deprecated_version; _ }) -> Option.is_none deprecated_version)
+       (add_help speclist)
+  in
+  List.iter (print_spec buf) undeprecated;
+  bprintf buf "\neprecated arguments:\n";
+  List.iter (print_spec buf) deprecated
 
 
 let usage_string speclist errmsg =
@@ -167,11 +183,11 @@ let parse_and_expand_argv_dynamic_aux allow_expand current argv speclist anonfun
       let s = !argv.(!current) in
       if String.starts_with ~prefix:"-" s then begin
         let action, follow =
-          try assoc3 s !speclist, None
+          try assoc4 s !speclist, None
           with Not_found ->
           try
             let keyword, arg = split s in
-            assoc3 keyword !speclist, Some arg
+            assoc4 keyword !speclist, Some arg
           with Not_found -> raise (Stop (Unknown s))
         in
         let no_arg () =
@@ -337,7 +353,7 @@ let second_word s =
       end
 
 
-let max_arg_len cur (kwd, spec, doc) =
+let max_arg_len cur (kwd, spec, doc, _) =
   match spec with
   | Symbol _ -> Int.max cur (String.length kwd)
   | _ -> Int.max cur (String.length kwd + second_word doc)
@@ -349,25 +365,25 @@ let replace_leading_tab s =
 
 let add_padding len ksd =
   match ksd with
-  | (_, _, "") ->
+  | (_, _, "", _) ->
       (* Do not pad undocumented options, so that they still don't show up when
        * run through [usage] or [parse]. *)
       ksd
-  | (kwd, (Symbol _ as spec), msg) ->
+  | (kwd, (Symbol _ as spec), msg, status) ->
       let cutcol = second_word msg in
       let spaces = String.make ((Int.max 0 (len - cutcol)) + 3) ' ' in
-      (kwd, spec, "\n" ^ spaces ^ replace_leading_tab msg)
-  | (kwd, spec, msg) ->
+      (kwd, spec, "\n" ^ spaces ^ replace_leading_tab msg, status)
+  | (kwd, spec, msg, status) ->
       let cutcol = second_word msg in
       let kwd_len = String.length kwd in
       let diff = len - kwd_len - cutcol in
       if diff <= 0 then
-        (kwd, spec, replace_leading_tab msg)
+        (kwd, spec, replace_leading_tab msg, status)
       else
         let spaces = String.make diff ' ' in
         let prefix = String.sub (replace_leading_tab msg) 0 cutcol in
         let suffix = String.sub msg cutcol (String.length msg - cutcol) in
-        (kwd, spec, prefix ^ spaces ^ suffix)
+        (kwd, spec, prefix ^ spaces ^ suffix, status)
 
 
 let align ?(limit=max_int) speclist =

@@ -22,7 +22,7 @@ val macosx : bool
 
 (* Machine-specific command-line options *)
 
-val command_line_options : (string * Arg.spec * string) list
+val command_line_options : (string * Arg.spec * string * Arg.status) list
 
 (* Addressing modes *)
 

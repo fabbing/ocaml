@@ -505,16 +505,21 @@ let dump_exe ic =
   let code_size = Bytesections.seek_section toc ic Bytesections.Name.CODE in
   print_code ic code_size
 
+let empty_status : Arg.status =
+  { deprecated_version = None
+  ; introduced_version = None
+  }
+
 let arg_list = [
-  "-nobanners", Arg.Clear print_banners, " : don't print banners";
-  "-noloc", Arg.Clear print_locations, " : don't print source information";
-  "-reloc", Arg.Set print_reloc_info, " : print relocation information";
+  "-nobanners", Arg.Clear print_banners, " : don't print banners", empty_status;
+  "-noloc", Arg.Clear print_locations, " : don't print source information", empty_status;
+  "-reloc", Arg.Set print_reloc_info, " : print relocation information", empty_status;
   "-args", Arg.Expand Arg.read_arg,
      "<file> Read additional newline separated command line arguments \n\
-     \      from <file>";
+     \      from <file>", empty_status;
   "-args0", Arg.Expand Arg.read_arg0,
      "<file> Read additional NUL separated command line arguments from \n\
-     \      <file>";
+     \      <file>", empty_status;
 ]
 let arg_usage =
   Printf.sprintf "%s [OPTIONS] FILES : dump content of bytecode files"

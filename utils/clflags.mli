@@ -256,14 +256,16 @@ val should_stop_after : Compiler_pass.t -> bool
 val set_save_ir_after : Compiler_pass.t -> bool -> unit
 val should_save_ir_after : Compiler_pass.t -> bool
 
-val arg_spec : (string * Arg.spec * string) list ref
+type arg_spec := string * Arg.spec * string * Arg.status
+
+val arg_spec : arg_spec list ref
 
 (* [add_arguments __LOC__ args] will add the arguments from [args] at
    the end of [arg_spec], checking that they have not already been
    added by [add_arguments] before. A warning is printed showing the
    locations of the function from which the argument was previously
    added. *)
-val add_arguments : string -> (string * Arg.spec * string) list -> unit
+val add_arguments : string -> arg_spec list -> unit
 
 (* [create_usage_msg program] creates a usage message for [program] *)
 val create_usage_msg: string -> string

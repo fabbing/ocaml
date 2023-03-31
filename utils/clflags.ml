@@ -559,7 +559,7 @@ let reset_arguments () =
   arg_names := String.Map.empty
 
 let add_arguments loc args =
-  List.iter (function (arg_name, _, _) as arg ->
+  List.iter (function (arg_name, _, _, _) as arg ->
     try
       let loc2 = String.Map.find arg_name !arg_names in
       Printf.eprintf

@@ -67,22 +67,27 @@ let exclude filename =
   with End_of_file -> close_in ic
      | x -> close_in ic; raise x
 
+let empty_status : Arg.status =
+  { deprecated_version = None
+  ; introduced_version = None
+  }
+
 let main () =
   Arg.parse_expand
     ["-used", Arg.Unit(fun () -> used := true; defined := false),
-        "show primitives referenced in the object files";
+        "show primitives referenced in the object files", empty_status;
      "-defined", Arg.Unit(fun () -> defined := true; used := false),
-        "show primitives defined in the object files (default)";
+        "show primitives defined in the object files (default)", empty_status;
      "-all", Arg.Unit(fun () -> defined := true; used := true),
-        "show primitives defined or referenced in the object files";
+        "show primitives defined or referenced in the object files", empty_status;
      "-exclude", Arg.String(fun s -> exclude_file := s),
-     "<file> don't print the primitives mentioned in <file>";
+     "<file> don't print the primitives mentioned in <file>", empty_status;
      "-args", Arg.Expand Arg.read_arg,
      "<file> Read additional newline separated command line arguments \n\
-     \      from <file>";
+     \      from <file>", empty_status;
      "-args0", Arg.Expand Arg.read_arg0,
      "<file> Read additional NUL separated command line arguments from \n\
-     \      <file>";]
+     \      <file>", empty_status;]
     scan_obj
     "Usage: primreq [options] <.cmo and .cma files>\nOptions are:";
   if String.length !exclude_file > 0 then exclude !exclude_file;

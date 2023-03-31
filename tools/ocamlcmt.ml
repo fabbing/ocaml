@@ -19,25 +19,30 @@ let print_info_arg = ref false
 let target_filename = ref None
 let save_cmt_info = ref false
 
+let empty_status : Arg.status =
+  { deprecated_version = None
+  ; introduced_version = None
+  }
+
 let arg_list = Arg.align [
   "-o", Arg.String (fun s -> target_filename := Some s),
-    "<file> Dump to file <file> (or stdout if -)";
+    "<file> Dump to file <file> (or stdout if -)", empty_status;
   "-annot", Arg.Set gen_annot,
-    " Generate the corresponding .annot file";
+    " Generate the corresponding .annot file", empty_status;
   "-save-cmt-info", Arg.Set save_cmt_info,
-    " Encapsulate additional cmt information in annotations";
+    " Encapsulate additional cmt information in annotations", empty_status;
   "-src", Arg.Set gen_ml,
-    " Convert .cmt or .cmti back to source code (without comments)";
-  "-info", Arg.Set print_info_arg, " : print information on the file";
+    " Convert .cmt or .cmti back to source code (without comments)", empty_status;
+  "-info", Arg.Set print_info_arg, " : print information on the file", empty_status;
   "-args", Arg.Expand Arg.read_arg,
     "<file> Read additional newline separated command line arguments \n\
-    \      from <file>";
+    \      from <file>", empty_status;
   "-args0", Arg.Expand Arg.read_arg0,
     "<file> Read additional NUL separated command line arguments from \n\
-    \      <file>";
+    \      <file>", empty_status;
   "-I", Arg.String (fun s ->
     Clflags.include_dirs := s :: !Clflags.include_dirs),
-    "<dir> Add <dir> to the list of include directories";
+    "<dir> Add <dir> to the list of include directories", empty_status;
   ]
 
 let arg_usage =

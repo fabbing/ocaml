@@ -29,7 +29,7 @@ type cmm_label = int
 
 val big_toc : bool ref
 
-val command_line_options : (string * Arg.spec * string) list
+val command_line_options : (string * Arg.spec * string * Arg.status) list
 
 (* Specific operations *)
 

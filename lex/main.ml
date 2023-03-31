@@ -32,16 +32,21 @@ let print_version_num () =
   print_endline Sys.ocaml_version;
   exit 0
 
+let empty_status : Arg.status =
+  { deprecated_version = None
+  ; introduced_version = None
+  }
+
 let specs =
   ["-ml", Arg.Set ml_automata,
     " Output code that does not use the Lexing module built-in automata \
-     interpreter";
+     interpreter", empty_status;
    "-o", Arg.String (fun x -> output_name := Some x),
-    " <file>  Set output file name to <file>";
-   "-q", Arg.Set Common.quiet_mode, " Do not display informational messages";
-   "-v",  Arg.Unit print_version_string, " Print version and exit";
-   "-version",  Arg.Unit print_version_string, " Print version and exit";
-   "-vnum",  Arg.Unit print_version_num, " Print version number and exit";
+    " <file>  Set output file name to <file>", empty_status;
+   "-q", Arg.Set Common.quiet_mode, " Do not display informational messages", empty_status;
+   "-v",  Arg.Unit print_version_string, " Print version and exit", empty_status;
+   "-version",  Arg.Unit print_version_string, " Print version and exit", empty_status;
+   "-vnum",  Arg.Unit print_version_num, " Print version number and exit", empty_status;
   ]
 
 let _ =

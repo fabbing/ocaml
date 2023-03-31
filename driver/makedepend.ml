@@ -582,6 +582,12 @@ let print_version_num () =
   Format.printf "%s@." Sys.ocaml_version;
   exit 0
 
+let make_arg name type_ description =
+  ( name
+  , type_
+  , description
+  , Arg.{ introduced_version = None; deprecated_version = None }
+  )
 
 let run_main argv =
   let dep_args_rev : dep_arg list ref = ref [] in
@@ -591,66 +597,66 @@ let run_main argv =
     Compenv.readenv ppf Before_args;
     Clflags.reset_arguments (); (* reset arguments from ocamlc/ocamlopt *)
     Clflags.add_arguments __LOC__ [
-      "-absname", Arg.Set Clflags.absname,
+      make_arg "-absname" (Arg.Set Clflags.absname)
         " Show absolute filenames in error messages";
-      "-no-absname", Arg.Clear Clflags.absname,
+      make_arg "-no-absname" (Arg.Clear Clflags.absname)
         " Do not try to show absolute filenames in error messages (default)";
-      "-all", Arg.Set all_dependencies,
+      make_arg "-all" (Arg.Set all_dependencies)
         " Generate dependencies on all files";
-      "-allow-approx", Arg.Set allow_approximation,
+      make_arg "-allow-approx" (Arg.Set allow_approximation)
         " Fallback to a lexer-based approximation on unparsable files";
-      "-as-map", Arg.Set Clflags.transparent_modules,
+      make_arg "-as-map" (Arg.Set Clflags.transparent_modules)
         " Omit delayed dependencies for module aliases (-no-alias-deps -w -49)";
         (* "compiler uses -no-alias-deps, and no module is coerced"; *)
-      "-debug-map", Arg.Set debug,
+      make_arg "-debug-map" (Arg.Set debug)
         " Dump the delayed dependency map for each map file";
-      "-I", Arg.String (add_to_list Clflags.include_dirs),
+      make_arg "-I" (Arg.String (add_to_list Clflags.include_dirs))
         "<dir>  Add <dir> to the list of include directories";
-      "-nocwd", Arg.Set nocwd,
+      make_arg "-nocwd" (Arg.Set nocwd)
         " Do not add current working directory to \
           the list of include directories";
-      "-impl", Arg.String (add_dep_arg (fun f -> Src (f, Some ML))),
+      make_arg "-impl" (Arg.String (add_dep_arg (fun f -> Src (f, Some ML))))
         "<f>  Process <f> as a .ml file";
-      "-intf", Arg.String (add_dep_arg (fun f -> Src (f, Some MLI))),
+      make_arg "-intf" (Arg.String (add_dep_arg (fun f -> Src (f, Some MLI))))
         "<f>  Process <f> as a .mli file";
-      "-map", Arg.String (add_dep_arg (fun f -> Map f)),
+      make_arg "-map" (Arg.String (add_dep_arg (fun f -> Map f)))
         "<f>  Read <f> and propagate delayed dependencies to following files";
-      "-ml-synonym", Arg.String(add_to_synonym_list ml_synonyms),
+      make_arg "-ml-synonym" (Arg.String(add_to_synonym_list ml_synonyms))
         "<e>  Consider <e> as a synonym of the .ml extension";
-      "-mli-synonym", Arg.String(add_to_synonym_list mli_synonyms),
+      make_arg "-mli-synonym" (Arg.String(add_to_synonym_list mli_synonyms))
         "<e>  Consider <e> as a synonym of the .mli extension";
-      "-modules", Arg.Set raw_dependencies,
+      make_arg "-modules" (Arg.Set raw_dependencies)
         " Print module dependencies in raw form (not suitable for make)";
-      "-native", Arg.Set native_only,
+      make_arg "-native" (Arg.Set native_only)
         " Generate dependencies for native-code only (no .cmo files)";
-      "-bytecode", Arg.Set bytecode_only,
+      make_arg "-bytecode" (Arg.Set bytecode_only)
         " Generate dependencies for bytecode-code only (no .cmx files)";
-      "-one-line", Arg.Set one_line,
+      make_arg "-one-line" (Arg.Set one_line)
         " Output one line per file, regardless of the length";
-      "-open", Arg.String (add_to_list Clflags.open_modules),
+      make_arg "-open" (Arg.String (add_to_list Clflags.open_modules))
         "<module>  Opens the module <module> before typing";
-      "-plugin", Arg.String(fun _p -> Clflags.plugin := true),
+      make_arg "-plugin" (Arg.String (fun _p -> Clflags.plugin := true))
         "<plugin>  (no longer supported)";
-      "-pp", Arg.String(fun s -> Clflags.preprocessor := Some s),
+      make_arg "-pp" (Arg.String(fun s -> Clflags.preprocessor := Some s))
         "<cmd>  Pipe sources through preprocessor <cmd>";
-      "-ppx", Arg.String (add_to_list Compenv.first_ppx),
+      make_arg "-ppx" (Arg.String (add_to_list Compenv.first_ppx))
         "<cmd>  Pipe abstract syntax trees through preprocessor <cmd>";
-      "-shared", Arg.Set shared,
+      make_arg "-shared" (Arg.Set shared)
         " Generate dependencies for native plugin files (.cmxs targets)";
-      "-slash", Arg.Set Clflags.force_slash,
+      make_arg "-slash" (Arg.Set Clflags.force_slash)
         " (Windows) Use forward slash / instead of backslash \\ in file paths";
-      "-no-slash", Arg.Clear Clflags.force_slash,
+      make_arg "-no-slash" (Arg.Clear Clflags.force_slash)
         " (Windows) Preserve any backslash \\ in file paths";
-      "-sort", Arg.Set sort_files,
+      make_arg "-sort" (Arg.Set sort_files)
         " Sort files according to their dependencies";
-      "-version", Arg.Unit print_version,
+      make_arg "-version" (Arg.Unit print_version)
         " Print version and exit";
-      "-vnum", Arg.Unit print_version_num,
+      make_arg "-vnum" (Arg.Unit print_version_num)
         " Print version number and exit";
-      "-args", Arg.Expand Arg.read_arg,
+      make_arg "-args" (Arg.Expand Arg.read_arg)
         "<file> Read additional newline separated command line arguments \n\
         \      from <file>";
-      "-args0", Arg.Expand Arg.read_arg0,
+      make_arg "-args0" (Arg.Expand Arg.read_arg0)
         "<file> Read additional NUL separated command line arguments from \n\
         \      <file>"
     ];

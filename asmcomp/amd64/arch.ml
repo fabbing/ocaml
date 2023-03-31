@@ -16,11 +16,16 @@
 
 (* Machine-specific command-line options *)
 
+let empty_status : Arg.status =
+  { deprecated_version = None
+  ; introduced_version = None
+  }
+
 let command_line_options =
   [ "-fPIC", Arg.Set Clflags.pic_code,
-      " Generate position-independent machine code (default)";
+      " Generate position-independent machine code (default)", empty_status;
     "-fno-PIC", Arg.Clear Clflags.pic_code,
-      " Generate position-dependent machine code" ]
+      " Generate position-dependent machine code", empty_status ]
 
 (* Specific operations for the AMD64 processor *)
 

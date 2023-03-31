@@ -16,7 +16,7 @@
 
 (* Machine-specific command-line options *)
 
-val command_line_options : (string * Arg.spec * string) list
+val command_line_options : (string * Arg.spec * string * Arg.status) list
 
 (* Specific operations for the AMD64 processor *)
 

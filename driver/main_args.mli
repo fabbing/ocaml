@@ -259,7 +259,7 @@ module type Ocamldoc_options = sig
 end
 
 module type Arg_list = sig
-    val list : (string * Arg.spec * string) list
+    val list : (string * Arg.spec * string * Arg.status) list
 end
 
 module Make_bytecomp_options : Bytecomp_options -> Arg_list
@@ -274,9 +274,9 @@ module Make_ocamldoc_options : Ocamldoc_options -> Arg_list
     This is meant for ocaml{c,opt}p, which use this to forward most of their
     arguments to ocaml{c,opt}. *)
 val options_with_command_line_syntax
-  : (string * Arg.spec * string) list
+  : (string * Arg.spec * string * Arg.status) list
   -> string list ref
-  -> (string * Arg.spec * string) list
+  -> (string * Arg.spec * string * Arg.status) list
 
 module Default: sig
   module Topmain: Bytetop_options

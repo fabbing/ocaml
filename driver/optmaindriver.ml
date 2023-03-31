@@ -33,6 +33,10 @@ module Backend = struct
 end
 let backend = (module Backend : Backend_intf.S)
 
+let empty_status : Arg.status =
+  { deprecated_version = None
+  ; introduced_version = None
+  }
 
 module Options = Main_args.Make_optcomp_options (Main_args.Default.Optmain)
 let main argv ppf =
@@ -44,7 +48,7 @@ let main argv ppf =
     Clflags.add_arguments __LOC__
       ["-depend", Arg.Unit Makedepend.main_from_option,
        "<options> Compute dependencies \
-        (use 'ocamlopt -depend -help' for details)"];
+        (use 'ocamlopt -depend -help' for details)", empty_status];
     Compenv.parse_arguments (ref argv) Compenv.anonymous program;
     Compmisc.read_clflags_from_env ();
     if !Clflags.plugin then

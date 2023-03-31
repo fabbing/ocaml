@@ -22,7 +22,7 @@
 
 val pic_code : bool ref
 
-val command_line_options : (string * Arg.spec * string) list
+val command_line_options : (string * Arg.spec * string * Arg.status) list
 
 (* Specific operations *)
 

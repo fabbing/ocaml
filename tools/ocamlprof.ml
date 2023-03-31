@@ -485,30 +485,35 @@ let print_version_num () =
   printf "%s@." Sys.ocaml_version;
   exit 0
 
+let empty_status : Arg.status =
+  { deprecated_version = None
+  ; introduced_version = None
+  }
+
 let main () =
   try
     Option.iter Location.(prerr_alert none) @@ Warnings.parse_options false "a";
     Arg.parse_expand [
        "-f", Arg.String (fun s -> dumpfile := s),
-             "<file>     Use <file> as dump file (default ocamlprof.dump)";
+             "<file>     Use <file> as dump file (default ocamlprof.dump)", empty_status;
        "-F", Arg.String (fun s -> special_id := s),
-             "<s>        Insert string <s> with the counts";
+             "<s>        Insert string <s> with the counts", empty_status;
        "-impl", Arg.String process_impl_file,
-                "<file>  Process <file> as a .ml file";
-       "-instrument", Arg.Set instr_mode, "  (undocumented)";
+                "<file>  Process <file> as a .ml file", empty_status;
+       "-instrument", Arg.Set instr_mode, "  (undocumented)", empty_status;
        "-intf", Arg.String process_intf_file,
-                "<file>  Process <file> as a .mli file";
-       "-m", Arg.String (fun s -> modes := s), "<flags>    (undocumented)";
+                "<file>  Process <file> as a .mli file", empty_status;
+       "-m", Arg.String (fun s -> modes := s), "<flags>    (undocumented)", empty_status;
        "-version", Arg.Unit print_version,
-                   "     Print version and exit";
+                   "     Print version and exit", empty_status;
        "-vnum", Arg.Unit print_version_num,
-                "        Print version number and exit";
+                "        Print version number and exit", empty_status;
         "-args", Arg.Expand Arg.read_arg,
             "<file> Read additional newline separated command line arguments \n\
-            \      from <file>";
+            \      from <file>", empty_status;
        "-args0", Arg.Expand Arg.read_arg0,
            "<file> Read additional NUL separated command line arguments from \n\
-           \      <file>"
+           \      <file>", empty_status
     ] process_anon_file usage;
     exit 0
   with
