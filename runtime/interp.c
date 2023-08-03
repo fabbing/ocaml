@@ -16,6 +16,7 @@
 #define CAML_INTERNALS
 
 /* The bytecode interpreter */
+#include <assert.h>
 #include <stdio.h>
 #include "caml/alloc.h"
 #include "caml/backtrace.h"
@@ -1164,6 +1165,14 @@ value caml_interprete(code_t prog, asize_t prog_size)
       caml_debugger(BREAKPOINT, Val_unit);
       Restore_after_debugger;
       Restart_curr_instr;
+
+/* Backport 5.x */
+
+    Instruct(PERFORM):
+    Instruct(RESUME):
+    Instruct(RESUMETERM):
+    Instruct(REPERFORMTERM):
+      assert(0);
 
 #ifndef THREADED_CODE
     default:
