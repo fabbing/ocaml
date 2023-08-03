@@ -237,3 +237,25 @@ CAMLprim value caml_ml_condition_broadcast(value wrapper)
   assert(false);
   return 0;
 }
+
+/*  runtime/amd64.S */
+
+void caml_runstack(void)
+{
+  assert(false);
+}
+
+void caml_perform(void)
+{
+  assert(false);
+}
+
+void caml_reperform(void)
+{
+  assert(false);
+}
+
+void caml_resume(void)
+{
+  assert(false);
+}
