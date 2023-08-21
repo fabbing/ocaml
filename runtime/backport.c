@@ -152,7 +152,7 @@ CAMLprim value caml_input_value_to_outside_heap(value vchan)
 
 CAMLprim value caml_lazy_reset_to_lazy(value v)
 {
-  assert(false);
+  // FIXME
   return 0;
 }
 
