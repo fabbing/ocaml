@@ -91,4 +91,6 @@ void caml_init_domain ()
 #if defined(NAKED_POINTERS_CHECKER) && !defined(_WIN32)
   Caml_state->checking_pointer_pc = NULL;
   #endif
+
+  Caml_state->dls_root = Val_unit;
 }
