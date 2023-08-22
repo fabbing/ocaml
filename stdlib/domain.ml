@@ -162,6 +162,7 @@ let cas r vold vnew =
   if not (Atomic.compare_and_set r vold vnew) then raise Retry
 
 let spawn f =
+  let [@warning "-22"] _ = failwith "internal error: one domain only" in
   do_at_first_spawn ();
   (* the termination_mutex is used to block a joining thread *)
   let termination_mutex = Mutex.create () in
