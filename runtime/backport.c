@@ -64,8 +64,11 @@ CAMLprim value caml_atomic_load (value ref)
 
 CAMLprim value caml_atomic_exchange (value ref, value v)
 {
-  assert(false);
-  return 0;
+  value ret = Field(ref, 0);
+  //Field(ref, 0) = v;
+  //write_barrier(ref, 0, ret, v);
+  caml_modify(&Field(ref, 0), v);
+  return ret;
 }
 
 CAMLprim value caml_atomic_cas (value ref, value oldv, value newv)
