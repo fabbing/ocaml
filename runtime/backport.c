@@ -104,8 +104,7 @@ CAMLprim value caml_domain_spawn(value callback, value mutex)
 
 CAMLprim value caml_ml_domain_id(value unit)
 {
-  assert(false);
-  return 0;
+  return Val_int(0);
 }
 
 CAMLprim value caml_ml_domain_unique_token (value unit)
