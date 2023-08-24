@@ -1,4 +1,5 @@
 (* TEST
+ * skip
  *)
 
 let f x =

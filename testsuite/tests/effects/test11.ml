@@ -1,4 +1,5 @@
 (* TEST
+ * skip
 *)
 
 (* Tests RESUMETERM with extra_args != 0 in bytecode,

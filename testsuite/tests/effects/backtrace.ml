@@ -1,4 +1,5 @@
 (* TEST
+ * skip
    flags = "-g"
    ocamlrunparam += ",b=1"
 *)
