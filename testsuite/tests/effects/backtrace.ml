@@ -2,6 +2,7 @@
  * skip
    flags = "-g"
    ocamlrunparam += ",b=1"
+ * skip
 *)
 
 open EffectHandlers

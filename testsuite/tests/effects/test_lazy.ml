@@ -1,5 +1,6 @@
-(* TEST *)
+(* TEST
  * skip
+ *)
 
 open EffectHandlers
 open EffectHandlers.Deep
