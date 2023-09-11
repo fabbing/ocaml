@@ -1081,8 +1081,8 @@ LBL(do_perform):
         je      LBL(112)
 #if defined(WITH_THREAD_SANITIZER)
         TSAN_SAVE_CALLER_REGS
-        movq    (%rsp), C_ARG_1   /* arg 1: pc of perform */
-        leaq    8(%rsp), C_ARG_2  /* arg 2: sp at perform */
+        movq    STACK_RETADDR(%rsp), C_ARG_1  /* arg 1: pc of perform */
+        leaq    STACK_ARG_1(%rsp), C_ARG_2    /* arg 2: sp at perform */
         SWITCH_OCAML_TO_C
         C_call  (GCALL(caml_tsan_exit_on_perform))
         SWITCH_C_TO_OCAML
@@ -1109,9 +1109,9 @@ LBL(112):
            to __tsan_func_entry via caml_tsan_entry_on_resume. */
         TSAN_SAVE_CALLER_REGS
         movq    Stack_sp(%r10), %r11
-        movq    (%r11), C_ARG_1   /* arg 1: pc of perform */
-        leaq    8(%r11), C_ARG_2  /* arg 2: sp at perform */
-        movq    %r10, C_ARG_3     /* arg 3: fiber */
+        movq    STACK_RETADDR(%r11), C_ARG_1  /* arg 1: pc of perform */
+        leaq    STACK_ARG_1(%r11), C_ARG_2    /* arg 2: sp at perform */
+        movq    %r10, C_ARG_3                 /* arg 3: fiber */
         SWITCH_OCAML_TO_C
         C_call  (GCALL(caml_tsan_entry_on_resume))
         SWITCH_C_TO_OCAML
@@ -1149,6 +1149,7 @@ CFI_STARTPROC
         testq   %r10, %r10
         jz      2f
 #if defined(WITH_THREAD_SANITIZER)
+        ENTER_FUNCTION
         pushq   %rax; CFI_ADJUST(8);
         pushq   %r10; CFI_ADJUST(8);
         TSAN_ENTER_FUNCTION(16)
@@ -1156,13 +1157,14 @@ CFI_STARTPROC
         popq    %rax; CFI_ADJUST(-8);
         TSAN_SAVE_CALLER_REGS
         movq    Stack_sp(%r10), %r11
-        movq    (%r11), C_ARG_1   /* arg 1: pc of perform */
-        leaq    8(%r11), C_ARG_2  /* arg 2: sp at perform */
-        movq    %r10, C_ARG_3     /* arg 3: fiber */
+        movq    STACK_RETADDR(%r11), C_ARG_1  /* arg 1: pc of perform */
+        leaq    STACK_ARG_1(%r11), C_ARG_2    /* arg 2: sp at perform */
+        movq    %r10, C_ARG_3                 /* arg 3: fiber */
         SWITCH_OCAML_TO_C
         C_call  (GCALL(caml_tsan_entry_on_resume))
         SWITCH_C_TO_OCAML
         TSAN_RESTORE_CALLER_REGS
+        LEAVE_FUNCTION
 #endif
     /* Find end of list of stacks and add current */
         movq    %r10, %rsi
