@@ -16,8 +16,8 @@
 
 #ifdef NATIVE_CODE
 
-#ifndef DEBUG
-#undef TSAN_DEBUG
+#ifdef DEBUG
+#define TSAN_DEBUG
 #endif
 
 #define UNW_LOCAL_ONLY
@@ -142,7 +142,7 @@ void caml_tsan_exit_on_raise(uintnat pc, char* sp, char* trapsp)
       break;
     }
 
-    caml_tsan_debug_log_pc("forced__tsan_func_exit for", pc);
+    caml_tsan_debug_log_pc("on raise, forced__tsan_func_exit for", pc);
     __tsan_func_exit(NULL);
     pc = next_pc;
   }
@@ -190,7 +190,7 @@ void caml_tsan_exit_on_raise_c(char* limit)
     if (ret != 0)
       caml_fatal_error("unw_get_reg SP failed with code %d", ret);
 #ifdef TSAN_DEBUG
-    caml_tsan_debug_log_pc("forced__tsan_func_exit for", prev_pc);
+    caml_tsan_debug_log_pc("on raise from C, forced__tsan_func_exit for", prev_pc);
 #endif
     __tsan_func_exit(NULL);
 
@@ -216,7 +216,7 @@ void caml_tsan_exit_on_perform(uintnat pc, char* sp)
   while (1) {
     frame_descr* descr = caml_next_frame_descriptor(fds, &next_pc, &sp, stack);
 
-    caml_tsan_debug_log_pc("forced__tsan_func_exit for", pc);
+    caml_tsan_debug_log_pc("on perform, forced__tsan_func_exit for", pc);
     __tsan_func_exit(NULL);
 
     if (descr == NULL) {

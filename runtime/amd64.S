@@ -778,7 +778,8 @@ CFI_STARTPROC
     /* Save callee-save registers */
         PUSH_CALLEE_SAVE_REGS
 #if defined(WITH_THREAD_SANITIZER)
-    /* TSan enter function from C */
+    /* We can't use the TSAN_ENTER_FUNCTION as it assumes an OCaml stack, and
+       we are on a C stack. */
         pushq   C_ARG_1
         movq    56(%rsp), C_ARG_1
         C_call  (GCALL(__tsan_func_entry))
@@ -903,21 +904,15 @@ LBL(117):
         testq   $1, Caml_state(backtrace_active)
         je    LBL(118)
 #endif
-        movq    %rax, C_ARG_1     /* arg 1: exception bucket */
-#ifdef WITH_FRAME_POINTERS
-        movq    8(%r13), C_ARG_2   /* arg 2: pc of raise */
-        leaq    16(%r13), C_ARG_3  /* arg 3: sp at raise */
-#else
-        movq    (%r13), C_ARG_2   /* arg 2: pc of raise */
-        leaq    8(%r13), C_ARG_3  /* arg 3: sp at raise */
-#endif
-        movq    Caml_state(exn_handler), C_ARG_4
-                                  /* arg 4: sp of handler */
+        movq    %rax, C_ARG_1                    /* arg 1: exception bucket */
+        movq    STACK_RETADDR(%r13), C_ARG_2     /* arg 2: pc of raise */
+        leaq    STACK_ARG_1(%r13), C_ARG_3       /* arg 3: sp at raise */
+        movq    Caml_state(exn_handler), C_ARG_4 /* arg 4: sp of handler */
         C_call  (GCALL(caml_stash_backtrace))
 #if defined(WITH_THREAD_SANITIZER)
 LBL(118):
-        movq    STACK_RETADDR(%r13), C_ARG_1   /* arg 1: pc of raise */
-        leaq    STACK_ARG_1(%r13), C_ARG_2  /* arg 2: sp at raise */
+        movq    STACK_RETADDR(%r13), C_ARG_1     /* arg 1: pc of raise */
+        leaq    STACK_ARG_1(%r13), C_ARG_2       /* arg 2: sp at raise */
         movq    Caml_state(exn_handler), C_ARG_3 /* arg 3: sp of handler */
         C_call  (GCALL(caml_tsan_exit_on_raise))
 #endif
@@ -1080,6 +1075,7 @@ LBL(do_perform):
         cmpq    $0, %r10                   /* parent is NULL? */
         je      LBL(112)
 #if defined(WITH_THREAD_SANITIZER)
+        ENTER_FUNCTION
         TSAN_SAVE_CALLER_REGS
         movq    STACK_RETADDR(%rsp), C_ARG_1  /* arg 1: pc of perform */
         leaq    STACK_ARG_1(%rsp), C_ARG_2    /* arg 2: sp at perform */
@@ -1087,6 +1083,7 @@ LBL(do_perform):
         C_call  (GCALL(caml_tsan_exit_on_perform))
         SWITCH_C_TO_OCAML
         TSAN_RESTORE_CALLER_REGS
+        LEAVE_FUNCTION
 #endif
         SWITCH_OCAML_STACKS /* preserves r11 and rsi */
      /* We have to null the Handler_parent after the switch because the
@@ -1108,10 +1105,9 @@ LBL(112):
            original performer stack. For that, we perform the necessary calls
            to __tsan_func_entry via caml_tsan_entry_on_resume. */
         TSAN_SAVE_CALLER_REGS
-        movq    Stack_sp(%r10), %r11
-        movq    STACK_RETADDR(%r11), C_ARG_1  /* arg 1: pc of perform */
-        leaq    STACK_ARG_1(%r11), C_ARG_2    /* arg 2: sp at perform */
-        movq    %r10, C_ARG_3                 /* arg 3: fiber */
+        movq    STACK_RETADDR(%rsp), C_ARG_1       /* arg 1: pc of perform */
+        leaq    STACK_ARG_1(%rsp), C_ARG_2         /* arg 2: sp at perform */
+        movq    Caml_state(current_stack), C_ARG_3 /* arg 3: fiber */
         SWITCH_OCAML_TO_C
         C_call  (GCALL(caml_tsan_entry_on_resume))
         SWITCH_C_TO_OCAML
