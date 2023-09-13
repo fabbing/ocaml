@@ -1092,6 +1092,11 @@ LBL(do_perform):
         movq    Handler_effect(%r11), %rsi  /* %rsi := effect handler */
         jmp     GCALL(caml_apply3)
 LBL(112):
+    /*  %rax: effect to reperform
+        %rbx: continuation
+        %rdi: last_fiber
+        %rsi: limit */
+        movq    %rsi, C_ARG_4 /* arg 4 (rcx): limit */
     /* Switch back to original performer before raising Effect.Unhandled
        (no-op unless this is a reperform) */
         movq    0(%rbx), %r10  /* load performer stack from continuation */
@@ -1156,6 +1161,7 @@ CFI_STARTPROC
         movq    STACK_RETADDR(%r11), C_ARG_1  /* arg 1: pc of perform */
         leaq    STACK_ARG_1(%r11), C_ARG_2    /* arg 2: sp at perform */
         movq    %r10, C_ARG_3                 /* arg 3: fiber */
+        movq    $0, C_ARG_4                   /* arg 4: no limit */
         SWITCH_OCAML_TO_C
         C_call  (GCALL(caml_tsan_entry_on_resume))
         SWITCH_C_TO_OCAML

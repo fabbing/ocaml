@@ -238,7 +238,7 @@ void caml_tsan_exit_on_perform(uintnat pc, char* sp)
    - [pc] is the program counter where `caml_perform` was called.
    - [sp] is the stack pointer at the perform point. */
 CAMLreally_no_tsan void caml_tsan_entry_on_resume(uintnat pc, char* sp,
-    struct stack_info const* stack)
+    struct stack_info const* stack, struct stack_info const* limit)
 {
   caml_frame_descrs fds = caml_get_frame_descrs();
   uintnat next_pc = pc;
@@ -246,7 +246,7 @@ CAMLreally_no_tsan void caml_tsan_entry_on_resume(uintnat pc, char* sp,
   caml_next_frame_descriptor(fds, &next_pc, &sp, (struct stack_info*)stack);
   if (next_pc == 0) {
     stack = stack->handler->parent;
-    if (!stack) {
+    if (!stack || stack == limit) {
       return;
     }
 
@@ -259,7 +259,7 @@ CAMLreally_no_tsan void caml_tsan_entry_on_resume(uintnat pc, char* sp,
     sp = p + sizeof(value);
   }
 
-  caml_tsan_entry_on_resume(next_pc, sp, stack);
+  caml_tsan_entry_on_resume(next_pc, sp, stack, limit);
   caml_tsan_debug_log_pc("forced__tsan_func_entry for", pc);
   __tsan_func_entry((void*)next_pc);
 }
