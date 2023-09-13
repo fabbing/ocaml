@@ -246,7 +246,11 @@ CAMLreally_no_tsan void caml_tsan_entry_on_resume(uintnat pc, char* sp,
   caml_next_frame_descriptor(fds, &next_pc, &sp, (struct stack_info*)stack);
   if (next_pc == 0) {
     stack = stack->handler->parent;
-    if (!stack || stack == limit) {
+    if (!stack) {
+      /* We expect the limit to be non-zero only on reperform */
+      CAMLassert(limit == 0);
+      return;
+    } else if (stack == limit) {
       return;
     }
 

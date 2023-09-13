@@ -1068,7 +1068,12 @@ CFI_STARTPROC
         movq    Caml_state(current_stack), %rsi /* %rsi := old stack */
         leaq    1(%rsi), %rdi /* %rdi (last_fiber) := Val_ptr(old stack) */
         movq    %rdi, 0(%rbx) /* Initialise continuation */
+        movq    $0, C_ARG_4
 LBL(do_perform):
+    /*  %rax: effect to reperform
+        %rbx: continuation
+        %rdi: last_fiber
+        %rcx: limit (C_ARG_4) */
     /*  %rsi: old stack */
         movq    Stack_handler(%rsi), %r11  /* %r11 := old stack -> handler */
         movq    Handler_parent(%r11), %r10 /* %r10 := parent stack */
@@ -1092,11 +1097,6 @@ LBL(do_perform):
         movq    Handler_effect(%r11), %rsi  /* %rsi := effect handler */
         jmp     GCALL(caml_apply3)
 LBL(112):
-    /*  %rax: effect to reperform
-        %rbx: continuation
-        %rdi: last_fiber
-        %rsi: limit */
-        movq    %rsi, C_ARG_4 /* arg 4 of caml_tsan_entry_on_resume: limit */
     /* Switch back to original performer before raising Effect.Unhandled
        (no-op unless this is a reperform) */
         movq    0(%rbx), %r10  /* load performer stack from continuation */
@@ -1134,6 +1134,7 @@ CFI_STARTPROC
         movq    Caml_state(current_stack), %rsi  /* %rsi := old stack */
         movq    (Stack_handler-1)(%rdi), %r10
         movq    %rsi, Handler_parent(%r10)       /* Append to last_fiber */
+        movq    %rsi, C_ARG_4
         leaq    1(%rsi), %rdi  /* %rdi (last_fiber) := Val_ptr(old stack) */
      /* Need to update the oldest saved frame pointer here as the execution of
         the handler may have caused the current fiber stack to reallocate. */
