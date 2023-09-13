@@ -1096,7 +1096,7 @@ LBL(112):
         %rbx: continuation
         %rdi: last_fiber
         %rsi: limit */
-        movq    %rsi, C_ARG_4 /* arg 4 (rcx): limit */
+        movq    %rsi, C_ARG_4 /* arg 4 of caml_tsan_entry_on_resume: limit */
     /* Switch back to original performer before raising Effect.Unhandled
        (no-op unless this is a reperform) */
         movq    0(%rbx), %r10  /* load performer stack from continuation */
@@ -1113,6 +1113,7 @@ LBL(112):
         movq    STACK_RETADDR(%rsp), C_ARG_1       /* arg 1: pc of perform */
         leaq    STACK_ARG_1(%rsp), C_ARG_2         /* arg 2: sp at perform */
         movq    Caml_state(current_stack), C_ARG_3 /* arg 3: fiber */
+        /* limit already provided in C_ARG_4 above */
         SWITCH_OCAML_TO_C
         C_call  (GCALL(caml_tsan_entry_on_resume))
         SWITCH_C_TO_OCAML
