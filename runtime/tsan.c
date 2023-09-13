@@ -16,8 +16,8 @@
 
 #ifdef NATIVE_CODE
 
-#ifndef DEBUG
-#undef TSAN_DEBUG
+#ifdef DEBUG
+#define TSAN_DEBUG
 #endif
 
 #define UNW_LOCAL_ONLY
