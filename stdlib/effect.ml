@@ -73,7 +73,7 @@ module Deep = struct
     let effc eff k last_fiber =
       match handler.effc eff with
       | Some f -> f k
-      | None -> Printf.eprintf "reperform\n%!"; reperform eff k last_fiber
+      | None -> reperform eff k last_fiber
     in
     let s = alloc_stack handler.retc handler.exnc effc in
     runstack s comp arg
@@ -85,7 +85,7 @@ module Deep = struct
     let effc' eff k last_fiber =
       match handler.effc eff with
       | Some f -> f k
-      | None -> Printf.eprintf "reperform\n%!"; reperform eff k last_fiber
+      | None -> reperform eff k last_fiber
     in
     let s = alloc_stack (fun x -> x) (fun e -> raise e) effc' in
     runstack s comp arg
