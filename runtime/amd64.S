@@ -708,6 +708,7 @@ LBL(caml_c_call):
 #ifdef WITH_THREAD_SANITIZER
         pushq   %rax; CFI_ADJUST(8);
         subq    $16, %rsp; CFI_ADJUST(16);
+    /* Save %xmm0 before C call */
         movupd   %xmm0, (%rsp)
         TSAN_EXIT_FUNCTION
         movupd  (%rsp), %xmm0
