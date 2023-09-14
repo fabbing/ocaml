@@ -1103,6 +1103,10 @@ LBL(112):
         movq    0(%rbx), %r10  /* load performer stack from continuation */
         subq    $1, %r10       /* r10 := Ptr_val(r10) */
         movq    Caml_state(current_stack), %rsi
+    /* TODO comment */
+        TSAN_SAVE_CALLER_REGS
+        TSAN_ENTER_FUNCTION(0)
+        TSAN_RESTORE_CALLER_REGS
         SWITCH_OCAML_STACKS
     /* No parent stack. Raise Effect.Unhandled. */
         ENTER_FUNCTION
