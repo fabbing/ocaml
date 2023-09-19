@@ -1069,7 +1069,6 @@ CFI_STARTPROC
         movq    Caml_state(current_stack), %rsi /* %rsi := old stack */
         leaq    1(%rsi), %rdi /* %rdi (last_fiber) := Val_ptr(old stack) */
         movq    %rdi, 0(%rbx) /* Initialise continuation */
-        movq    $0, C_ARG_4
 LBL(do_perform):
     /*  %rax: effect to reperform
         %rbx: continuation
@@ -1098,6 +1097,7 @@ LBL(do_perform):
         movq    Handler_effect(%r11), %rsi  /* %rsi := effect handler */
         jmp     GCALL(caml_apply3)
 LBL(112):
+        movq    Caml_state(current_stack), C_ARG_4
     /* Switch back to original performer before raising Effect.Unhandled
        (no-op unless this is a reperform) */
         movq    0(%rbx), %r10  /* load performer stack from continuation */
