@@ -142,7 +142,7 @@ void caml_tsan_exit_on_raise(uintnat pc, char* sp, char* trapsp)
       break;
     }
 
-    caml_tsan_debug_log_pc("forced__tsan_func_exit for", pc);
+    caml_tsan_debug_log_pc("on raise, forced__tsan_func_exit for", pc);
     __tsan_func_exit(NULL);
     pc = next_pc;
   }
@@ -190,7 +190,7 @@ void caml_tsan_exit_on_raise_c(char* limit)
     if (ret != 0)
       caml_fatal_error("unw_get_reg SP failed with code %d", ret);
 #ifdef TSAN_DEBUG
-    caml_tsan_debug_log_pc("forced__tsan_func_exit for", prev_pc);
+    caml_tsan_debug_log_pc("on raise from C, forced__tsan_func_exit for", prev_pc);
 #endif
     __tsan_func_exit(NULL);
 
@@ -216,7 +216,7 @@ void caml_tsan_exit_on_perform(uintnat pc, char* sp)
   while (1) {
     frame_descr* descr = caml_next_frame_descriptor(fds, &next_pc, &sp, stack);
 
-    caml_tsan_debug_log_pc("forced__tsan_func_exit for", pc);
+    caml_tsan_debug_log_pc("on perform, forced__tsan_func_exit for", pc);
     __tsan_func_exit(NULL);
 
     if (descr == NULL) {
@@ -238,15 +238,26 @@ void caml_tsan_exit_on_perform(uintnat pc, char* sp)
    - [pc] is the program counter where `caml_perform` was called.
    - [sp] is the stack pointer at the perform point. */
 CAMLreally_no_tsan void caml_tsan_entry_on_resume(uintnat pc, char* sp,
-    struct stack_info const* stack)
+    struct stack_info const* stack, struct stack_info const* limit)
 {
   caml_frame_descrs fds = caml_get_frame_descrs();
   uintnat next_pc = pc;
+
+  /* In case of a perform on the main fiber (no parent stack), no functions
+     were exited with a `caml_tsan_exit_on_perform`, so no functions should be
+     entered again.
+     Return early, since `next_pc` won't be NULL below */
+  if (stack == limit)
+    return;
 
   caml_next_frame_descriptor(fds, &next_pc, &sp, (struct stack_info*)stack);
   if (next_pc == 0) {
     stack = stack->handler->parent;
     if (!stack) {
+      /* We expect the limit to be non-zero only on reperform */
+      CAMLassert(limit == 0);
+      return;
+    } else if (stack == limit) {
       return;
     }
 
@@ -259,7 +270,7 @@ CAMLreally_no_tsan void caml_tsan_entry_on_resume(uintnat pc, char* sp,
     sp = p + sizeof(value);
   }
 
-  caml_tsan_entry_on_resume(next_pc, sp, stack);
+  caml_tsan_entry_on_resume(next_pc, sp, stack, limit);
   caml_tsan_debug_log_pc("forced__tsan_func_entry for", pc);
   __tsan_func_entry((void*)next_pc);
 }
