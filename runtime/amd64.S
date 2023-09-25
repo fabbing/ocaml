@@ -681,6 +681,21 @@ CFI_STARTPROC
 CFI_ENDPROC
 ENDFUNCTION(G(caml_allocN))
 
+FUNCTION(G(caml_tsan_young_check))
+CFI_STARTPROC
+        TSAN_SAVE_CALLER_REGS
+        SWITCH_OCAML_TO_C
+        leaq    Caml_state(young_limit), C_ARG_1
+        movq    $0, C_ARG_2
+        C_call  (GCALL(__tsan_atomic64_load))
+        cmpq    %rax, %r15
+        SWITCH_C_TO_OCAML
+        TSAN_RESTORE_CALLER_REGS
+        ret
+CFI_ENDPROC
+ENDFUNCTION(G(caml_tsan_young_check))
+
+
 /******************************************************************************/
 /* Call a C function from OCaml */
 /******************************************************************************/

@@ -634,7 +634,10 @@ let emit_instr env fallthrough i =
         I.lea (mem64 NONE 8 R15) (res i 0)
       end
   | Lop(Ipoll { return_label }) ->
-      I.cmp (domain_field Domainstate.Domain_young_limit) r15;
+      if not Config.tsan then
+        I.cmp (domain_field Domainstate.Domain_young_limit) r15
+      else
+        emit_call "caml_tsan_young_check";
       let gc_call_label = new_label () in
       let lbl_after_poll = match return_label with
                   | None -> new_label()
