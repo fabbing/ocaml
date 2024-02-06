@@ -13779,9 +13779,9 @@ case $host in #(
     exeext='' ;;
 esac
 
-otherlibraries="dynlink runtime_events"
-lib_dynlink=true
-lib_runtime_events=true
+otherlibraries=""
+#lib_dynlink=true
+#lib_runtime_events=true
 if test x"$enable_unix_lib" != "xno"
 then :
   enable_unix_lib=yes
