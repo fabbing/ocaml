@@ -95,8 +95,7 @@ endif
 
 .INTERMEDIATE: tmpheader.exe
 tmpheader.exe: $(HEADERPROGRAM).$(O)
-	$(V_MKEXE)$(call MKEXE_VIA_CC,$@,$^)
-	$(STRIP) $@
+	echo "tmpheader.exe not implemented" >$@
 
 stdlib.cma: $(OBJS)
 	$(V_LINKC)$(CAMLC) -a -o $@ $^
