@@ -57,7 +57,7 @@ build: [
   ]
   [make "-j%{jobs}%"]
 ]
-install: [make "install"]
+install: [make "cross-install"]
 depopts: [
   "ocaml-option-32bit"
   "ocaml-option-afl"
