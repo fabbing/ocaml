@@ -69,7 +69,9 @@ CAMLprim value caml_unix_spawn(value executable, /* string */
   }
   /* Spawn the new process */
   if (Bool_val(usepath)) {
-    r = posix_spawnp(&pid, path, &act, NULL, argv, envp);
+    //r = posix_spawnp(&pid, path, &act, NULL, argv, envp);
+    caml_uerror("spawnp not implemented", executable);
+    return Val_long(-1);
   } else {
     r = posix_spawn(&pid, path, &act, NULL, argv, envp);
   }
