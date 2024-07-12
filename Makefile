@@ -2754,3 +2754,7 @@ config.status:
 # This is why this dependency is kept at the very end of this file
 
 $(ALL_CMX_FILES): ocamlopt$(EXE)
+
+.PHONY: print-var
+print-var:
+	@echo "$($(VAR))"
